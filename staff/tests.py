@@ -94,6 +94,20 @@ class CourierAPITest(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.url = reverse('courier-create')
 
+    def test_staff_login(self):
+        # We need to test without force_authenticate
+        self.client.force_authenticate(user=None)
+        url = reverse('staff-login')
+        data = {
+            "staffID": self.staff.staffID,
+            "password": "password"
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
+        self.assertEqual(response.data['staffID'], self.staff.staffID)
+
     def test_create_courier_api(self):
         data = {
             "to_location": self.location2.id,

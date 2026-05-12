@@ -1,9 +1,38 @@
 from django.db.models import Q
+from django.contrib.auth import authenticate
 from rest_framework import generics, permissions, status, response
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.http import HttpResponse
 from .models import Courier, StaffAccount, Location, Route, Driver, Vehicle
 from .serializers import CourierSerializer, LocationSerializer, RouteSerializer, DriverSerializer, VehicleSerializer
 from .utils import generate_courier_pdf
+
+class StaffLoginView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        staff_id = request.data.get('staffID')
+        password = request.data.get('password')
+        
+        if not staff_id or not password:
+            return response.Response({"error": "staffID and password are required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            staff_account = StaffAccount.objects.get(staffID=staff_id)
+            user = authenticate(username=staff_account.user.username, password=password)
+            
+            if user:
+                refresh = RefreshToken.for_user(user)
+                return response.Response({
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                    'staffID': staff_account.staffID,
+                    'username': user.username
+                }, status=status.HTTP_200_OK)
+            else:
+                return response.Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        except StaffAccount.DoesNotExist:
+            return response.Response({"error": "Staff account not found"}, status=status.HTTP_404_NOT_FOUND)
 
 class OtherLocationListView(generics.ListAPIView):
     serializer_class = LocationSerializer
