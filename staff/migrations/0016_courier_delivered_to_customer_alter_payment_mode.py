@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name='courier',
-            name='delevered_to_customer',
+            name='delivered_to_customer',
             field=models.BooleanField(default=False),
         ),
         migrations.AlterField(

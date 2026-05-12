@@ -137,7 +137,7 @@ class CourierAPITest(APITestCase):
         self.assertEqual(courier.from_location, self.location1)
         self.assertEqual(courier.lr_number, f"LR-NY-{courier.id}")
         self.assertEqual(courier.status, "inplace")
-        self.assertFalse(courier.delevered_to_customer)
+        self.assertFalse(courier.delivered_to_customer)
         self.assertEqual(courier.payment.amount, 250)
         self.assertEqual(courier.payment.status, "Paid")
         self.assertEqual(courier.payment.mode, "Online")
@@ -554,28 +554,28 @@ class CourierAPITest(APITestCase):
         # 1. Meets all conditions
         c1 = Courier.objects.create(
             created_by=self.staff, from_location=self.location2, to_location=self.location1,
-            status='delevered', delevered_to_customer=True, invoice_number="C1", 
+            status='delevered', delivered_to_customer=True, invoice_number="C1", 
             parcel_information=[], weight=1, delivery_type="Door Delivery"
         )
         
-        # 2. delevered_to_customer=False
+        # 2. delivered_to_customer=False
         c2 = Courier.objects.create(
             created_by=self.staff, from_location=self.location2, to_location=self.location1,
-            status='delevered', delevered_to_customer=False, invoice_number="C2", 
+            status='delevered', delivered_to_customer=False, invoice_number="C2", 
             parcel_information=[], weight=1, delivery_type="Door Delivery"
         )
         
         # 3. different to_location
         c3 = Courier.objects.create(
             created_by=self.staff, from_location=self.location1, to_location=self.location2,
-            status='delevered', delevered_to_customer=True, invoice_number="C3", 
+            status='delevered', delivered_to_customer=True, invoice_number="C3", 
             parcel_information=[], weight=1, delivery_type="Door Delivery"
         )
         
         # 4. different status
         c4 = Courier.objects.create(
             created_by=self.staff, from_location=self.location2, to_location=self.location1,
-            status='shipping', delevered_to_customer=True, invoice_number="C4", 
+            status='shipping', delivered_to_customer=True, invoice_number="C4", 
             parcel_information=[], weight=1, delivery_type="Door Delivery"
         )
         
@@ -589,7 +589,7 @@ class CourierAPITest(APITestCase):
         p1 = Payment.objects.create(amount=100, status='Paid', mode='Cash')
         c1 = Courier.objects.create(
             created_by=self.staff, from_location=self.location2, to_location=self.location1,
-            status='delevered', delevered_to_customer=False, payment=p1, invoice_number="PAID1",
+            status='delevered', delivered_to_customer=False, payment=p1, invoice_number="PAID1",
             parcel_information=[], weight=1, delivery_type="Door Delivery"
         )
         
@@ -597,7 +597,7 @@ class CourierAPITest(APITestCase):
         p2 = Payment.objects.create(amount=100, status='To Pay', mode='None')
         c2 = Courier.objects.create(
             created_by=self.staff, from_location=self.location2, to_location=self.location1,
-            status='delevered', delevered_to_customer=False, payment=p2, invoice_number="TOPAY1",
+            status='delevered', delivered_to_customer=False, payment=p2, invoice_number="TOPAY1",
             parcel_information=[], weight=1, delivery_type="Door Delivery"
         )
         
@@ -605,7 +605,7 @@ class CourierAPITest(APITestCase):
         p3 = Payment.objects.create(amount=100, status='Paid', mode='Cash')
         c3 = Courier.objects.create(
             created_by=self.staff, from_location=self.location2, to_location=self.location1,
-            status='delevered', delevered_to_customer=True, payment=p3, invoice_number="DELIV1",
+            status='delevered', delivered_to_customer=True, payment=p3, invoice_number="DELIV1",
             parcel_information=[], weight=1, delivery_type="Door Delivery"
         )
         

@@ -166,7 +166,7 @@ class DeleveredCourierListView(generics.ListAPIView):
         return Courier.objects.filter(
             status='delevered',
             to_location=staff_account.assigned_location,
-            delevered_to_customer=True
+            delivered_to_customer=True
         )
 
 class PaidCourierListView(generics.ListAPIView):
@@ -181,7 +181,7 @@ class PaidCourierListView(generics.ListAPIView):
         return Courier.objects.filter(
             status='delevered',
             to_location=staff_account.assigned_location,
-            delevered_to_customer=False,
+            delivered_to_customer=False,
             payment__status='Paid'
         )
 
@@ -197,7 +197,7 @@ class ToPayCourierListView(generics.ListAPIView):
         return Courier.objects.filter(
             status='delevered',
             to_location=staff_account.assigned_location,
-            delevered_to_customer=False,
+            delivered_to_customer=False,
             payment__status='To Pay'
         )
 
