@@ -8,13 +8,13 @@ class LocationAdmin(admin.ModelAdmin):
 
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
-    list_display = ('vehicle_number', 'driver_name')
-    search_fields = ('vehicle_number', 'driver_name')
+    list_display = ('vehicle_number',)
+    search_fields = ('vehicle_number',)
 
 @admin.register(Driver)
 class DriverAdmin(admin.ModelAdmin):
-    list_display = ('user', 'license_number', 'phone_number')
-    search_fields = ('user__username', 'license_number', 'phone_number')
+    list_display = ('user_name', 'license_number', 'phone_number')
+    search_fields = ('user_name', 'license_number', 'phone_number')
 
 @admin.register(Route)
 class RouteAdmin(admin.ModelAdmin):
@@ -44,5 +44,5 @@ class CourierAdmin(admin.ModelAdmin):
 class GDMAdmin(admin.ModelAdmin):
     list_display = ('gdm_number', 'vehicle_number', 'driver', 'status', 'dispatch_date')
     list_filter = ('status', 'dispatch_date')
-    search_fields = ('gdm_number', 'vehicle_number', 'driver__user__username')
+    search_fields = ('gdm_number', 'vehicle_number', 'driver__user_name')
     readonly_fields = ('gdm_number',)

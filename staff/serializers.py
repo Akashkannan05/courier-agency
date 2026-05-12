@@ -12,7 +12,7 @@ class GDMSerializer(serializers.ModelSerializer):
         model = GDM
         fields = [
             'id', 'gdm_number', 'vehicle_number', 'driver', 'route', 'couriers', 
-            'dispatch_date', 'status', 'total_weights', 
+            'dispatch_date', 'status', 'total_weights', 'all_locations',
             'total_couriers_count', 'total_price', 'driver_name', 'driver_phone_num'
         ]
         read_only_fields = ['id', 'gdm_number', 'dispatch_date']
@@ -20,7 +20,7 @@ class GDMSerializer(serializers.ModelSerializer):
 class DriverSerializer(serializers.ModelSerializer):
     class Meta:
         model = Driver
-        fields = ['id', 'user', 'license_number']
+        fields = ['id', 'user_name', 'license_number', 'phone_number']
 
 class RouteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,7 +30,7 @@ class RouteSerializer(serializers.ModelSerializer):
 class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicle
-        fields = ['id', 'vehicle_number', 'driver_name']
+        fields = ['id', 'vehicle_number']
 
 class LocationSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
-from .models import Location, StaffAccount, Courier, Payment, Driver, Route, Vehicle
+from .models import Location, StaffAccount, Courier, Payment, Driver, Route, Vehicle, GDM
 
 class RouteModelTest(TestCase):
     def setUp(self):
@@ -8,8 +8,8 @@ class RouteModelTest(TestCase):
         self.loc2 = Location.objects.create(name="Point B", short_code="PB")
         self.loc3 = Location.objects.create(name="Point C", short_code="PC")
         self.user = User.objects.create_user(username="driveruser", password="password")
-        self.driver = Driver.objects.create(user=self.user, license_number="LIC123")
-        self.vehicle = Vehicle.objects.create(vehicle_number="V123", driver_name="John")
+        self.driver = Driver.objects.create(user_name="driveruser", license_number="LIC123")
+        self.vehicle = Vehicle.objects.create(vehicle_number="V123")
 
     def test_route_creation(self):
         route = Route.objects.create(
@@ -206,8 +206,8 @@ class CourierAPITest(APITestCase):
         )
         route = Route.objects.create(
             from_location=self.location1, to_location=self.location2, route_path=[],
-            driver=Driver.objects.create(user=User.objects.create_user(username="dr", password="p"), license_number="L"),
-            vehicle=Vehicle.objects.create(vehicle_number="V", driver_name="D")
+            driver=Driver.objects.create(user_name="dr", license_number="L"),
+            vehicle=Vehicle.objects.create(vehicle_number="V")
         )
         
         url = reverse('courier-assign-route')
@@ -328,8 +328,8 @@ class CourierAPITest(APITestCase):
 
     def test_create_gdm_api(self):
         # Setup route, vehicle, driver
-        driver = Driver.objects.create(user=User.objects.create_user(username="gdmdr", password="p"), license_number="L_GDM")
-        vehicle = Vehicle.objects.create(vehicle_number="V_GDM", driver_name="D_GDM")
+        driver = Driver.objects.create(user_name="gdmdr", license_number="L_GDM")
+        vehicle = Vehicle.objects.create(vehicle_number="V_GDM")
         route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
         
         # Create couriers with same route and vehicle
@@ -353,8 +353,8 @@ class CourierAPITest(APITestCase):
 
     def test_create_gdm_mismatch(self):
         # Setup 2 different routes
-        driver = Driver.objects.create(user=User.objects.create_user(username="gdmdr2", password="p"), license_number="L_GDM2")
-        vehicle = Vehicle.objects.create(vehicle_number="V_GDM2", driver_name="D_GDM2")
+        driver = Driver.objects.create(user_name="gdmdr2", license_number="L_GDM2")
+        vehicle = Vehicle.objects.create(vehicle_number="V_GDM2")
         route1 = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
         route2 = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=["Stop"], driver=driver, vehicle=vehicle)
         
@@ -373,6 +373,23 @@ class CourierAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['error'], "All couriers must belong to the same route")
 
+    def test_list_gdm_api(self):
+        # Setup
+        driver = Driver.objects.create(user_name="gdmlistdr", license_number="L_GDML")
+        vehicle = Vehicle.objects.create(vehicle_number="V_GDML")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=["Midway"], driver=driver, vehicle=vehicle)
+        
+        gdm = GDM.objects.create(
+            created_by=self.staff, vehicle_number="V_GDML", driver=driver, route=route, status='unshipped'
+        )
+        
+        url = reverse('gdm-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['gdm_number'], gdm.gdm_number)
+        self.assertEqual(response.data[0]['all_locations'], ["New York", "Midway", "Los Angeles"])
+
     def test_list_other_locations(self):
         url = reverse('other-locations-list')
         response = self.client.get(url)
@@ -389,8 +406,8 @@ class RouteAPITest(APITestCase):
         self.loc2 = Location.objects.create(name="Point B", short_code="PB")
         self.loc3 = Location.objects.create(name="Point C", short_code="PC")
         self.user = User.objects.create_user(username="api_driver", password="password")
-        self.driver = Driver.objects.create(user=self.user, license_number="API-LIC")
-        self.vehicle = Vehicle.objects.create(vehicle_number="V-API", driver_name="Joe")
+        self.driver = Driver.objects.create(user_name="apiuser", license_number="API-LIC")
+        self.vehicle = Vehicle.objects.create(vehicle_number="V-API")
         self.staff_user = User.objects.create_user(username="staff_api", password="password")
         StaffAccount.objects.create(user=self.staff_user, assigned_location=self.loc1)
         self.client.force_authenticate(user=self.staff_user)
@@ -456,13 +473,10 @@ class DriverVehicleListTest(APITestCase):
         self.client.force_authenticate(user=self.user)
         
         # Create some drivers and vehicles
-        self.d1 = User.objects.create_user(username="d1", password="pw")
-        Driver.objects.create(user=self.d1, license_number="L1")
-        self.d2 = User.objects.create_user(username="d2", password="pw")
-        Driver.objects.create(user=self.d2, license_number="L2")
-        
-        Vehicle.objects.create(vehicle_number="V1", driver_name="Joe")
-        Vehicle.objects.create(vehicle_number="V2", driver_name="Jack")
+        Driver.objects.create(user_name="d1", license_number="L1")
+        Driver.objects.create(user_name="d2", license_number="L2")
+        Vehicle.objects.create(vehicle_number="V1")
+        Vehicle.objects.create(vehicle_number="V2")
 
     def test_list_drivers(self):
         url = reverse('driver-list')

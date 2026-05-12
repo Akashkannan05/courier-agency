@@ -4,12 +4,13 @@ from .views import (
     DriverListView, VehicleListView, RouteDetailView, 
     CourierListView, CourierAssignRouteView, CourierMarkShippingView,
     CourierMarkDeliveredView, RouteListView, CourierDetailView,
-    StaffLoginView, GDMCreateView
+    StaffLoginView, GDMCreateView, GDMListView
 )
 
 urlpatterns = [
     path('login/', StaffLoginView.as_view(), name='staff-login'),
     path('gdms/create/', GDMCreateView.as_view(), name='gdm-create'),
+    path('gdms/', GDMListView.as_view(), name='gdm-list'),
     path('couriers/create/', CourierCreateView.as_view(), name='courier-create'),
     path('couriers/<int:pk>/', CourierDetailView.as_view(), name='courier-detail'),
     path('couriers/assign-route/', CourierAssignRouteView.as_view(), name='courier-assign-route'),

@@ -60,6 +60,15 @@ class GDMCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(gdm)
         return response.Response(serializer.data, status=status.HTTP_201_CREATED)
 
+class GDMListView(generics.ListAPIView):
+    serializer_class = GDMSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Return only GDMs created by the current staff or related to their location if needed
+        # For now, let's return all GDMs for simplicity as the user didn't specify filtering
+        return GDM.objects.all().order_by('-dispatch_date')
+
 class StaffLoginView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
 

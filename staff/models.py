@@ -10,18 +10,17 @@ class Location(models.Model):
 
 class Vehicle(models.Model):
     vehicle_number = models.CharField(max_length=20, unique=True)
-    driver_name = models.CharField(max_length=255)
 
     def __str__(self):
-        return f"{self.vehicle_number} ({self.driver_name})"
+        return self.vehicle_number
 
 class Driver(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='driver_profile')
+    user_name = models.CharField(max_length=255)
     license_number = models.CharField(max_length=50, unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
 
     def __str__(self):
-        return f"{self.user.get_full_name() or self.user.username} ({self.license_number})"
+        return f"{self.user_name} ({self.license_number})"
 
 class Route(models.Model):
     from_location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='starting_routes')
@@ -181,7 +180,14 @@ class GDM(models.Model):
 
     @property
     def driver_name(self):
-        return self.driver.user.get_full_name() or self.driver.user.username
+        return self.driver.user_name
+
+    @property
+    def all_locations(self):
+        path = [self.route.from_location.name]
+        path.extend(self.route.route_path)
+        path.append(self.route.to_location.name)
+        return path
 
     @property
     def driver_phone_num(self):
