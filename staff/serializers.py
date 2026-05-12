@@ -43,7 +43,7 @@ class CourierSerializer(serializers.ModelSerializer):
             'parcel_information', 'weight', 'invoice_number', 'freight', 
             'loading_unloading', 'door_pickup', 'other_transport_crossing', 
             'mamool', 'statistical_charges', 'door_delivery', 'delivery_type',
-            'payment_status', 'payment_mode', 'total', 'lr_number', 'status', 'route', 'delivered_to_customer'
+            'payment_status', 'payment_mode', 'total', 'lr_number', 'status', 'route', 'delevered_to_customer'
         ]
         read_only_fields = ['id', 'total', 'from_location']
 

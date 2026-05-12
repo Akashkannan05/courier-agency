@@ -140,21 +140,21 @@ class CourierListView(generics.ListAPIView):
         elif status_filter == 'shipping':
             return queryset.filter(status='shipping', from_location=assigned_location)
         elif status_filter == 'sent':
-            return queryset.filter(status='delivered', from_location=assigned_location)
+            return queryset.filter(status='delevered', from_location=assigned_location)
         elif status_filter == 'incoming':
             return queryset.filter(
                 status='shipping',
                 to_location=assigned_location
             )
         elif status_filter == 'recieved':
-            return queryset.filter(status='delivered', to_location=assigned_location)
+            return queryset.filter(status='delevered', to_location=assigned_location)
         else: # 'all' or any other value
             return queryset.filter(
                 Q(from_location=assigned_location) | 
                 (Q(to_location=assigned_location) & ~Q(status='inplace'))
             )
 
-class DeliveredCourierListView(generics.ListAPIView):
+class DeleveredCourierListView(generics.ListAPIView):
     serializer_class = CourierSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -164,9 +164,9 @@ class DeliveredCourierListView(generics.ListAPIView):
             return Courier.objects.none()
             
         return Courier.objects.filter(
-            status='delivered',
+            status='delevered',
             to_location=staff_account.assigned_location,
-            delivered_to_customer=True
+            delevered_to_customer=True
         )
 
 class PaidCourierListView(generics.ListAPIView):
@@ -179,9 +179,9 @@ class PaidCourierListView(generics.ListAPIView):
             return Courier.objects.none()
             
         return Courier.objects.filter(
-            status='delivered',
+            status='delevered',
             to_location=staff_account.assigned_location,
-            delivered_to_customer=False,
+            delevered_to_customer=False,
             payment__status='Paid'
         )
 
@@ -195,9 +195,9 @@ class ToPayCourierListView(generics.ListAPIView):
             return Courier.objects.none()
             
         return Courier.objects.filter(
-            status='delivered',
+            status='delevered',
             to_location=staff_account.assigned_location,
-            delivered_to_customer=False,
+            delevered_to_customer=False,
             payment__status='To Pay'
         )
 
@@ -317,7 +317,7 @@ class CourierMarkShippingView(generics.GenericAPIView):
             except Courier.DoesNotExist:
                 return response.Response({"error": "Courier not found"}, status=status.HTTP_404_NOT_FOUND)
 
-class CourierMarkDeliveredView(generics.GenericAPIView):
+class CourierMarkDeleveredView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = CourierSerializer
 
@@ -335,7 +335,7 @@ class CourierMarkDeliveredView(generics.GenericAPIView):
             for courier in couriers:
                 # Silently skip if not shipping or not arriving at staff's location
                 if courier.status == 'shipping' and courier.to_location == staff_account.assigned_location:
-                    courier.status = 'delivered'
+                    courier.status = 'delevered'
                     courier.save()
                     updated_couriers.append(courier)
             
@@ -355,7 +355,7 @@ class CourierMarkDeliveredView(generics.GenericAPIView):
                 if courier.to_location != staff_account.assigned_location:
                     return response.Response({"error": "This courier is not arriving at your assigned location"}, status=status.HTTP_403_FORBIDDEN)
                 
-                courier.status = 'delivered'
+                courier.status = 'delevered'
                 courier.save()
                 
                 serializer = self.get_serializer(courier)

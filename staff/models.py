@@ -87,7 +87,7 @@ class Courier(models.Model):
     STATUS_CHOICES = [
         ('inplace', 'In Place'),
         ('shipping', 'Shipping'),
-        ('delivered', 'Delivered'),
+        ('delevered', 'Delevered'),
     ]
 
     created_by = models.ForeignKey(StaffAccount, on_delete=models.CASCADE, related_name='created_couriers')
@@ -110,7 +110,7 @@ class Courier(models.Model):
     invoice_number = models.CharField(max_length=20)
     lr_number = models.CharField(max_length=50, unique=True, editable=False, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='inplace')
-    delivered_to_customer = models.BooleanField(default=False)
+    delevered_to_customer = models.BooleanField(default=False)
     
     freight = models.PositiveIntegerField(default=0)
     loading_unloading = models.PositiveIntegerField(default=0)
@@ -169,7 +169,7 @@ class GDM(models.Model):
             return "inplace"
         if 'shipping' in statuses:
             return "shipping"
-        if all(s == 'delivered' for s in statuses):
+        if all(s == 'delevered' for s in statuses):
             return "sent"
             
         return "unshipped"
