@@ -154,13 +154,22 @@ class GDM(models.Model):
     couriers = models.ManyToManyField(Courier, related_name='gdms')
     dispatch_date = models.DateTimeField(auto_now_add=True)
     route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='gdms')
+    
     @property
     def status(self):
         couriers = self.couriers.all()
         if not couriers.exists():
             return "unshipped"
-        if all(c.status == 'delevered' for c in couriers):
-            return "shipped"
+        
+        statuses = set(couriers.values_list('status', flat=True))
+        
+        if 'inplace' in statuses:
+            return "inplace"
+        if 'shipping' in statuses:
+            return "shipping"
+        if all(s == 'delevered' for s in statuses):
+            return "sent"
+            
         return "unshipped"
 
     def save(self, *args, **kwargs):

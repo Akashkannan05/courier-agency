@@ -471,13 +471,18 @@ class CourierAPITest(APITestCase):
         gdm = GDM.objects.create(created_by=self.staff, vehicle_number="V_STATUS", driver=driver, route=route)
         gdm.couriers.set([c1, c2])
         
-        # Mixed status -> unshipped
-        self.assertEqual(gdm.status, "unshipped")
+        # 1 inplace, 1 delevered -> "inplace"
+        self.assertEqual(gdm.status, "inplace")
         
-        # Change c1 to delevered
+        # Change c1 to shipping. 1 shipping, 1 delevered -> "shipping"
+        c1.status = 'shipping'
+        c1.save()
+        self.assertEqual(gdm.status, "shipping")
+        
+        # Change c1 to delevered. All delevered -> "sent"
         c1.status = 'delevered'
         c1.save()
-        self.assertEqual(gdm.status, "shipped")
+        self.assertEqual(gdm.status, "sent")
         
         # Empty couriers -> unshipped
         gdm.couriers.clear()
