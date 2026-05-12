@@ -66,13 +66,14 @@ class Payment(models.Model):
         ('To Pay', 'To Pay'),
     ]
     MODE_CHOICES = [
+        ("None", "None")
         ('Cash', 'Cash'),
         ('Online', 'Online'),
     ]
 
     amount = models.PositiveIntegerField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Paid')
-    mode = models.CharField(max_length=20, choices=MODE_CHOICES, default='Cash')
+    mode = models.CharField(max_length=20, choices=MODE_CHOICES, default='None')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -154,7 +155,7 @@ class GDM(models.Model):
     couriers = models.ManyToManyField(Courier, related_name='gdms')
     dispatch_date = models.DateTimeField(auto_now_add=True)
     route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='gdms')
-    
+
     @property
     def status(self):
         couriers = self.couriers.all()

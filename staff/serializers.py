@@ -55,6 +55,9 @@ class CourierSerializer(serializers.ModelSerializer):
             rep['vehicle'] = VehicleSerializer(instance.vehicle).data
         if instance.route:
             rep['route'] = RouteSerializer(instance.route).data
+        if hasattr(instance, 'payment') and instance.payment:
+            rep['payment_status'] = instance.payment.status
+            rep['payment_mode'] = instance.payment.mode
         return rep
 
     def create(self, validated_data):
