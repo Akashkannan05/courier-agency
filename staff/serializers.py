@@ -116,9 +116,11 @@ class ReasonSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 class ExpenseSerializer(serializers.ModelSerializer):
+    reason_name = serializers.ReadOnlyField(source='reason.name')
+
     class Meta:
         model = Expense
-        fields = ['id', 'reason', 'staff', 'text', 'amount', 'created_at']
+        fields = ['id', 'reason', 'reason_name', 'staff', 'text', 'amount', 'created_at']
         read_only_fields = ['staff', 'created_at']
 
 class AccountSerializer(serializers.ModelSerializer):
