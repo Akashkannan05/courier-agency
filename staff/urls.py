@@ -5,7 +5,8 @@ from .views import (
     CourierListView, CourierAssignRouteView, CourierMarkShippingView,
     CourierMarkDeleveredView, RouteListView, CourierDetailView,
     StaffLoginView, GDMCreateView, GDMListView, GDMDetailView,
-    DeleveredCourierListView, PaidCourierListView, ToPayCourierListView
+    DeleveredCourierListView, PaidCourierListView, ToPayCourierListView,
+    ReasonListView, ExpenseListView, AccountDetailView
 )
 
 urlpatterns = [
@@ -30,4 +31,7 @@ urlpatterns = [
     path('routes/<int:pk>/', RouteDetailView.as_view(), name='route-detail'),
     path('drivers/', DriverListView.as_view(), name='driver-list'),
     path('vehicles/', VehicleListView.as_view(), name='vehicle-list'),
+    path('reasons/', ReasonListView.as_view(), name='reason-list'),
+    path('expenses/', ExpenseListView.as_view(), name='expense-list'),
+    path('account/', AccountDetailView.as_view(), name='account-detail'),
 ]

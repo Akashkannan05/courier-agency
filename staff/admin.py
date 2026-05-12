@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Location, Vehicle, Driver, Route, StaffAccount, Payment, Courier, GDM
+from .models import Location, Vehicle, Driver, Route, StaffAccount, Payment, Courier, GDM, Reason, Expense, Account
 
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
@@ -46,3 +46,19 @@ class GDMAdmin(admin.ModelAdmin):
     list_filter = ('dispatch_date',)
     search_fields = ('gdm_number', 'vehicle_number', 'driver__user_name')
     readonly_fields = ('gdm_number',)
+
+@admin.register(Reason)
+class ReasonAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
+@admin.register(Expense)
+class ExpenseAdmin(admin.ModelAdmin):
+    list_display = ('staff', 'reason', 'amount', 'created_at')
+    list_filter = ('reason', 'staff', 'created_at')
+    search_fields = ('staff__user__username', 'text', 'reason__name')
+
+@admin.register(Account)
+class AccountAdmin(admin.ModelAdmin):
+    list_display = ('id', 'staff', 'revenue', 'spent', 'balance', 'updated_date')
+    readonly_fields = ('balance', 'updated_date')

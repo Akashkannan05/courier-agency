@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Courier, Payment, Location, Driver, Route, Vehicle, GDM
+from .models import Courier, Payment, Location, Driver, Route, Vehicle, GDM, Reason, Expense, Account
 
 
 
@@ -108,3 +108,23 @@ class GDMSerializer(serializers.ModelSerializer):
         rep['driver'] = DriverSerializer(instance.driver).data
         rep['route'] = RouteSerializer(instance.route).data
         return rep
+
+class ReasonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reason
+        fields = ['id', 'name']
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Expense
+        fields = ['id', 'reason', 'staff', 'text', 'amount', 'created_at']
+    
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['reason_name'] = instance.reason.name
+        return rep
+
+class AccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Account
+        fields = ['revenue', 'spent', 'balance', 'updated_date']

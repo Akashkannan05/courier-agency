@@ -3,10 +3,12 @@ from django.contrib.auth import authenticate
 from rest_framework import generics, permissions, status, response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.http import HttpResponse
-from .models import Courier, StaffAccount, Location, Route, Driver, Vehicle, GDM
+from django.utils import timezone
+from .models import Courier, StaffAccount, Location, Route, Driver, Vehicle, GDM, Reason, Account, Expense
 from .serializers import (
     CourierSerializer, LocationSerializer, RouteSerializer, 
-    DriverSerializer, VehicleSerializer, GDMSerializer
+    DriverSerializer, VehicleSerializer, GDMSerializer, ReasonSerializer,
+    ExpenseSerializer, AccountSerializer
 )
 from .utils import generate_courier_pdf
 
@@ -201,10 +203,37 @@ class ToPayCourierListView(generics.ListAPIView):
             payment__status='To Pay'
         )
 
-class CourierDetailView(generics.RetrieveAPIView):
+class CourierDetailView(generics.RetrieveUpdateAPIView):
     queryset = Courier.objects.all()
     serializer_class = CourierSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        delivered_to_customer = request.data.get('delivered_to_customer')
+        payment_status = request.data.get('payment_status')
+        payment_mode = request.data.get('payment_mode')
+        
+        if delivered_to_customer is not None:
+            instance.delivered_to_customer = delivered_to_customer
+            instance.save()
+            
+        if payment_status and hasattr(instance, 'payment') and instance.payment:
+            old_status = instance.payment.status
+            instance.payment.status = payment_status
+            if payment_mode:
+                instance.payment.mode = payment_mode
+            instance.payment.save()
+            
+            if old_status != 'Paid' and payment_status == 'Paid':
+                staff_account = StaffAccount.objects.filter(user=request.user).first()
+                if staff_account:
+                    account, _ = Account.objects.get_or_create(staff=staff_account)
+                    account.ensure_today()
+                    account.revenue += instance.total
+                    account.save()
+            
+        return super().partial_update(request, *args, **kwargs)
 
 class CourierCreateView(generics.CreateAPIView):
     serializer_class = CourierSerializer
@@ -223,6 +252,12 @@ class CourierCreateView(generics.CreateAPIView):
             created_by=staff_account,
             from_location=staff_account.assigned_location
         )
+
+        if courier.payment.status == 'Paid':
+            account, _ = Account.objects.get_or_create(staff=staff_account)
+            account.ensure_today()
+            account.revenue += courier.total
+            account.save()
 
         # Generate PDF
         pdf_buffer = generate_courier_pdf(courier)
@@ -395,3 +430,38 @@ class VehicleListView(generics.ListAPIView):
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+class ReasonListView(generics.ListAPIView):
+    queryset = Reason.objects.all()
+    serializer_class = ReasonSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class ExpenseListView(generics.ListAPIView):
+    serializer_class = ExpenseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account:
+            return Expense.objects.none()
+        
+        today = timezone.now().date()
+        return Expense.objects.filter(
+            staff=staff_account,
+            created_at__date=today
+        ).order_by('-created_at')
+
+class AccountDetailView(generics.RetrieveAPIView):
+    serializer_class = AccountSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account:
+            # This should not happen if user is authenticated and linked
+            return None
+        
+        account, _ = Account.objects.get_or_create(staff=staff_account)
+        account.ensure_today()
+        account.save() # Recalculate balance and update date
+        return account

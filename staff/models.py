@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class Location(models.Model):
     name = models.CharField(max_length=255)
@@ -213,3 +214,71 @@ class GDM(models.Model):
 
     def __str__(self):
         return f"GDM {self.id} - {self.vehicle_number} on {self.dispatch_date.date()}"
+
+class Reason(models.Model):
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
+
+class Expense(models.Model):
+    reason = models.ForeignKey(Reason, on_delete=models.CASCADE, related_name='expenses')
+    staff = models.ForeignKey(StaffAccount, on_delete=models.CASCADE, related_name='expenses')
+    text = models.TextField()
+    amount = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            # Update case
+            old_instance = Expense.objects.get(pk=self.pk)
+            diff = self.amount - old_instance.amount
+            super().save(*args, **kwargs)
+            
+            account, _ = Account.objects.get_or_create(staff=self.staff)
+            account.ensure_today()
+            account.spent += diff
+            account.save()
+        else:
+            # New instance case
+            super().save(*args, **kwargs)
+            account, _ = Account.objects.get_or_create(staff=self.staff)
+            account.ensure_today()
+            account.spent += self.amount
+            account.save()
+
+    def delete(self, *args, **kwargs):
+        amount = self.amount
+        staff = self.staff
+        super().delete(*args, **kwargs)
+        
+        account, _ = Account.objects.get_or_create(staff=staff)
+        account.ensure_today()
+        account.spent -= amount
+        account.save()
+
+    def __str__(self):
+        return f"Expense by {self.staff.user.username} - {self.amount} ({self.reason.name})"
+
+class Account(models.Model):
+    staff = models.ForeignKey(StaffAccount, on_delete=models.CASCADE, related_name='accounts')
+    revenue = models.PositiveIntegerField(default=0)
+    spent = models.PositiveIntegerField(default=0)
+    balance = models.IntegerField(default=0)
+    # expenses = models.ManyToManyField(Expense, related_name='accounts', blank=True)
+    updated_date = models.DateTimeField(auto_now=True)
+
+    def ensure_today(self):
+        today = timezone.now().date()
+        if self.updated_date and self.updated_date.date() < today:
+            self.revenue = self.balance  # Carry over previous balance as starting revenue
+            self.spent = 0
+            self.balance = self.revenue
+            # We don't save here, the caller will save.
+
+    def save(self, *args, **kwargs):
+        self.balance = self.revenue - self.spent
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Account - Balance: {self.balance} (Rev: {self.revenue}, Spent: {self.spent})"
