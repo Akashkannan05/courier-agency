@@ -137,6 +137,7 @@ class CourierAPITest(APITestCase):
         self.assertEqual(courier.from_location, self.location1)
         self.assertEqual(courier.lr_number, f"LR-NY-{courier.id}")
         self.assertEqual(courier.status, "inplace")
+        self.assertFalse(courier.delivered_to_customer)
         self.assertEqual(courier.payment.amount, 250)
         self.assertEqual(courier.payment.status, "Paid")
         self.assertEqual(courier.payment.mode, "Online")
@@ -546,6 +547,79 @@ class CourierAPITest(APITestCase):
         location_names = [loc['name'] for loc in response.data]
         self.assertIn("Los Angeles", location_names)
         self.assertNotIn("New York", location_names)
+
+    def test_delivered_courier_list(self):
+        url = reverse('couriers-delivered-to-customer')
+        
+        # 1. Meets all conditions
+        c1 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location2, to_location=self.location1,
+            status='delevered', delivered_to_customer=True, invoice_number="C1", 
+            parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        # 2. delivered_to_customer=False
+        c2 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location2, to_location=self.location1,
+            status='delevered', delivered_to_customer=False, invoice_number="C2", 
+            parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        # 3. different to_location
+        c3 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            status='delevered', delivered_to_customer=True, invoice_number="C3", 
+            parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        # 4. different status
+        c4 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location2, to_location=self.location1,
+            status='shipping', delivered_to_customer=True, invoice_number="C4", 
+            parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['invoice_number'], "C1")
+
+    def test_paid_and_topay_courier_lists(self):
+        # 1. Paid Courier
+        p1 = Payment.objects.create(amount=100, status='Paid', mode='Cash')
+        c1 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location2, to_location=self.location1,
+            status='delevered', delivered_to_customer=False, payment=p1, invoice_number="PAID1",
+            parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        # 2. To Pay Courier
+        p2 = Payment.objects.create(amount=100, status='To Pay', mode='None')
+        c2 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location2, to_location=self.location1,
+            status='delevered', delivered_to_customer=False, payment=p2, invoice_number="TOPAY1",
+            parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        # 3. Delivered to customer (should be excluded from both)
+        p3 = Payment.objects.create(amount=100, status='Paid', mode='Cash')
+        c3 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location2, to_location=self.location1,
+            status='delevered', delivered_to_customer=True, payment=p3, invoice_number="DELIV1",
+            parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        # Test Paid list
+        url_paid = reverse('couriers-paid')
+        response = self.client.get(url_paid)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['invoice_number'], "PAID1")
+        
+        # Test To Pay list
+        url_topay = reverse('couriers-to-pay')
+        response = self.client.get(url_topay)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['invoice_number'], "TOPAY1")
 
 class RouteAPITest(APITestCase):
     def setUp(self):

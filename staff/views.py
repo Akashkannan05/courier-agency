@@ -147,12 +147,59 @@ class CourierListView(generics.ListAPIView):
                 to_location=assigned_location
             )
         elif status_filter == 'recieved':
-            return queryset.filter(status='delevered', to_location=assigned_location)
+            return queryset.filter(status='delevered', to_location=assigned_location,delivered_to_customer=False)
         else: # 'all' or any other value
             return queryset.filter(
                 Q(from_location=assigned_location) | 
                 (Q(to_location=assigned_location) & ~Q(status='inplace'))
             )
+
+class DeliveredCourierListView(generics.ListAPIView):
+    serializer_class = CourierSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account or not staff_account.assigned_location:
+            return Courier.objects.none()
+            
+        return Courier.objects.filter(
+            status='delevered',
+            to_location=staff_account.assigned_location,
+            delivered_to_customer=True
+        )
+
+class PaidCourierListView(generics.ListAPIView):
+    serializer_class = CourierSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account or not staff_account.assigned_location:
+            return Courier.objects.none()
+            
+        return Courier.objects.filter(
+            status='delevered',
+            to_location=staff_account.assigned_location,
+            delivered_to_customer=False,
+            payment__status='Paid'
+        )
+
+class ToPayCourierListView(generics.ListAPIView):
+    serializer_class = CourierSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account or not staff_account.assigned_location:
+            return Courier.objects.none()
+            
+        return Courier.objects.filter(
+            status='delevered',
+            to_location=staff_account.assigned_location,
+            delivered_to_customer=False,
+            payment__status='To Pay'
+        )
 
 class CourierDetailView(generics.RetrieveAPIView):
     queryset = Courier.objects.all()

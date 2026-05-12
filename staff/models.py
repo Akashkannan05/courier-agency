@@ -66,7 +66,7 @@ class Payment(models.Model):
         ('To Pay', 'To Pay'),
     ]
     MODE_CHOICES = [
-        ("None", "None")
+        ("None", "None"),
         ('Cash', 'Cash'),
         ('Online', 'Online'),
     ]
@@ -110,6 +110,7 @@ class Courier(models.Model):
     invoice_number = models.CharField(max_length=20)
     lr_number = models.CharField(max_length=50, unique=True, editable=False, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='inplace')
+    delivered_to_customer = models.BooleanField(default=False)
     
     freight = models.PositiveIntegerField(default=0)
     loading_unloading = models.PositiveIntegerField(default=0)
