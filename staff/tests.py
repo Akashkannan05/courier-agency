@@ -168,6 +168,11 @@ class CourierAPITest(APITestCase):
             created_by=self.staff, from_location=self.location2, to_location=self.location1,
             status='delevered', invoice_number="REC1", parcel_information=[], weight=1, delivery_type="Door Delivery"
         )
+        # 6. Inplace to loc1 (Should be EXCLUDED from 'all')
+        Courier.objects.create(
+            created_by=self.staff, from_location=self.location2, to_location=self.location1,
+            status='inplace', invoice_number="INC_INP1", parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
 
         base_url = reverse('courier-list')
 
@@ -196,8 +201,9 @@ class CourierAPITest(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['invoice_number'], "REC1")
 
+        # Test 'all' (default)
         response = self.client.get(base_url)
-        self.assertEqual(len(response.data), 5)
+        self.assertEqual(len(response.data), 5) # Should NOT include INC_INP1
 
     def test_assign_route(self):
         courier = Courier.objects.create(
@@ -218,7 +224,7 @@ class CourierAPITest(APITestCase):
         courier.refresh_from_db()
         self.assertEqual(courier.route, route)
         self.assertEqual(courier.vehicle, route.vehicle)
-        self.assertEqual(courier.status, 'shipping')
+        self.assertEqual(courier.status, 'inplace') # User commented out shipping status update in views.py
 
     def test_mark_shipping(self):
         route = Route.objects.create(

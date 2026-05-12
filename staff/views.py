@@ -140,7 +140,8 @@ class CourierListView(generics.ListAPIView):
             return queryset.filter(status='delevered', to_location=assigned_location)
         else: # 'all' or any other value
             return queryset.filter(
-                Q(from_location=assigned_location) | Q(to_location=assigned_location)
+                Q(from_location=assigned_location) | 
+                (Q(to_location=assigned_location) & ~Q(status='inplace'))
             )
 
 class CourierDetailView(generics.RetrieveAPIView):
