@@ -1,3 +1,5 @@
+from django.conf import settings
+from twilio.rest import Client
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -93,3 +95,19 @@ def generate_courier_pdf(courier):
     
     buffer.seek(0)
     return buffer
+
+def send_sms(to_number, body):
+    """
+    Sends an SMS message using Twilio.
+    """
+    try:
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        message = client.messages.create(
+            body=body,
+            from_=settings.TWILIO_PHONE_NUMBER,
+            to=to_number
+        )
+        return message.sid
+    except Exception as e:
+        print(f"Error sending SMS: {e}")
+        return None

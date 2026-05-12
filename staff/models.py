@@ -124,6 +124,9 @@ class Courier(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     delivery_type = models.CharField(max_length=20, choices=DELIVERY_TYPE_CHOICES)
 
+    getting_person_name = models.CharField(max_length=50) 
+    getting_person_ph = models.CharField(max_length=50)
+
     @property
     def total(self):
         return (

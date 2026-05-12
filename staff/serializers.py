@@ -43,7 +43,8 @@ class CourierSerializer(serializers.ModelSerializer):
             'parcel_information', 'weight', 'invoice_number', 'freight', 
             'loading_unloading', 'door_pickup', 'other_transport_crossing', 
             'mamool', 'statistical_charges', 'door_delivery', 'delivery_type',
-            'payment_status', 'payment_mode', 'total', 'lr_number', 'status', 'route', 'delivered_to_customer'
+            'payment_status', 'payment_mode', 'total', 'lr_number', 'status', 'route', 'delivered_to_customer',
+            'getting_person_name', 'getting_person_ph'
         ]
         read_only_fields = ['id', 'total', 'from_location']
 
@@ -118,11 +119,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Expense
         fields = ['id', 'reason', 'staff', 'text', 'amount', 'created_at']
-    
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        rep['reason_name'] = instance.reason.name
-        return rep
+        read_only_fields = ['staff', 'created_at']
 
 class AccountSerializer(serializers.ModelSerializer):
     class Meta:

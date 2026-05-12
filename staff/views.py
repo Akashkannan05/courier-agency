@@ -10,7 +10,7 @@ from .serializers import (
     DriverSerializer, VehicleSerializer, GDMSerializer, ReasonSerializer,
     ExpenseSerializer, AccountSerializer
 )
-from .utils import generate_courier_pdf
+from .utils import generate_courier_pdf, send_sms
 
 class GDMCreateView(generics.CreateAPIView):
     serializer_class = GDMSerializer
@@ -259,6 +259,31 @@ class CourierCreateView(generics.CreateAPIView):
             account.revenue += courier.total
             account.save()
 
+        # Send SMS Notifications
+        sms_body = (
+            f"Dear Customer,\n"
+            f"Your parcel has been successfully booked with Sa Salem Super Service.\n"
+            f"LR No: {courier.lr_number}\n"
+            f"From: {courier.from_address}\n"
+            f"To: {courier.to_address}\n"
+            f"Amount: ₹{courier.total}\n"
+            f"Payment Status: {courier.payment.status}\n"
+            f"For support or tracking assistance, contact us at +919788321354.\n"
+            f"Thank you for choosing Sa Salem Super Service."
+        )
+
+        def format_phone(phone):
+            phone = str(phone).strip()
+            if len(phone) == 10 and phone.isdigit():
+                return f"+91{phone}"
+            return phone
+
+        sender_phone = format_phone(courier.sender_phone_num)
+        receiver_phone = format_phone(courier.receiver_phone_num)
+
+        send_sms(sender_phone, sms_body)
+        send_sms(receiver_phone, sms_body)
+
         # Generate PDF
         pdf_buffer = generate_courier_pdf(courier)
         
@@ -372,6 +397,31 @@ class CourierMarkDeleveredView(generics.GenericAPIView):
                 if courier.status == 'shipping' and courier.to_location == staff_account.assigned_location:
                     courier.status = 'delevered'
                     courier.save()
+                    
+                    # Send SMS Notification
+                    sms_body = (
+                        f"Dear Customer,\n"
+                        f"Your parcel has reached the Sa Salem Super Service office successfully.\n"
+                        f"LR No: {courier.lr_number}\n"
+                        f"From: {courier.from_address}\n"
+                        f"To: {courier.to_address}\n"
+                        f"You may contact the destination office for delivery or pickup details.\n"
+                        f"For support, contact us at +91 12345 67890.\n"
+                        f"Thank you for choosing Sa Salem Super Service."
+                    )
+
+                    def format_phone(phone):
+                        phone = str(phone).strip()
+                        if len(phone) == 10 and phone.isdigit():
+                            return f"+91{phone}"
+                        return phone
+
+                    sender_phone = format_phone(courier.sender_phone_num)
+                    receiver_phone = format_phone(courier.receiver_phone_num)
+
+                    send_sms(sender_phone, sms_body)
+                    send_sms(receiver_phone, sms_body)
+
                     updated_couriers.append(courier)
             
             serializer = self.get_serializer(updated_couriers, many=True)
@@ -392,6 +442,30 @@ class CourierMarkDeleveredView(generics.GenericAPIView):
                 
                 courier.status = 'delevered'
                 courier.save()
+                
+                # Send SMS Notification
+                sms_body = (
+                    f"Dear Customer,\n"
+                    f"Your parcel has reached the Sa Salem Super Service office successfully.\n"
+                    f"LR No: {courier.lr_number}\n"
+                    f"From: {courier.from_address}\n"
+                    f"To: {courier.to_address}\n"
+                    f"You may contact the destination office for delivery or pickup details.\n"
+                    f"For support, contact us at +91 12345 67890.\n"
+                    f"Thank you for choosing Sa Salem Super Service."
+                )
+
+                def format_phone(phone):
+                    phone = str(phone).strip()
+                    if len(phone) == 10 and phone.isdigit():
+                        return f"+91{phone}"
+                    return phone
+
+                sender_phone = format_phone(courier.sender_phone_num)
+                receiver_phone = format_phone(courier.receiver_phone_num)
+
+                send_sms(sender_phone, sms_body)
+                send_sms(receiver_phone, sms_body)
                 
                 serializer = self.get_serializer(courier)
                 return response.Response(serializer.data, status=status.HTTP_200_OK)
@@ -436,20 +510,14 @@ class ReasonListView(generics.ListAPIView):
     serializer_class = ReasonSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-class ExpenseListView(generics.ListAPIView):
+
+class ExpenseListView(generics.ListCreateAPIView):
     serializer_class = ExpenseSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
+    def perform_create(self, serializer):
         staff_account = StaffAccount.objects.filter(user=self.request.user).first()
-        if not staff_account:
-            return Expense.objects.none()
-        
-        today = timezone.now().date()
-        return Expense.objects.filter(
-            staff=staff_account,
-            created_at__date=today
-        ).order_by('-created_at')
+        serializer.save(staff=staff_account)
 
 class AccountDetailView(generics.RetrieveAPIView):
     serializer_class = AccountSerializer
