@@ -430,6 +430,29 @@ class CourierAPITest(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['gdm_number'], gdm.gdm_number)
         self.assertEqual(response.data[0]['all_locations'], ["New York", "Midway", "Los Angeles"])
+    def test_list_gdm_filtering(self):
+        # Create another staff and GDM
+        other_user = User.objects.create_user(username="otherstaff", password="password")
+        other_staff = StaffAccount.objects.create(user=other_user, assigned_location=self.location1)
+        driver = Driver.objects.create(user_name="dr2", license_number="L2")
+        vehicle = Vehicle.objects.create(vehicle_number="V2")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        
+        GDM.objects.create(
+            created_by=other_staff, vehicle_number="V2", driver=driver, route=route, status='unshipped'
+        )
+        
+        # Current staff (self.user) should see 0 GDMs initially
+        url = reverse('gdm-list')
+        response = self.client.get(url)
+        self.assertEqual(len(response.data), 0)
+        
+        # Create one for current staff
+        GDM.objects.create(
+            created_by=self.staff, vehicle_number="V1", driver=driver, route=route, status='unshipped'
+        )
+        response = self.client.get(url)
+        self.assertEqual(len(response.data), 1)
 
     def test_list_other_locations(self):
         url = reverse('other-locations-list')

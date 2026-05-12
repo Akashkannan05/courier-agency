@@ -65,9 +65,10 @@ class GDMListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Return only GDMs created by the current staff or related to their location if needed
-        # For now, let's return all GDMs for simplicity as the user didn't specify filtering
-        return GDM.objects.all().order_by('-dispatch_date')
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account:
+            return GDM.objects.none()
+        return GDM.objects.filter(created_by=staff_account).order_by('-dispatch_date')
 
 class StaffLoginView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
