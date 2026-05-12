@@ -361,7 +361,7 @@ class CourierMarkDeleveredView(generics.GenericAPIView):
                 serializer = self.get_serializer(courier)
                 return response.Response(serializer.data, status=status.HTTP_200_OK)
             except Courier.DoesNotExist:
-                return response.Response({"error": "Courier not found"}, status=status.HTTP_404_NOT_FOUND)
+                return response.Response({"error": "Courier not found"}, status=status.HTTP_403_FORBIDDEN)
 
 class RouteCreateView(generics.CreateAPIView):
     queryset = Route.objects.all()
