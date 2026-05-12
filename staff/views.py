@@ -1,0 +1,215 @@
+from django.db.models import Q
+from rest_framework import generics, permissions, status, response
+from django.http import HttpResponse
+from .models import Courier, StaffAccount, Location, Route, Driver, Vehicle
+from .serializers import CourierSerializer, LocationSerializer, RouteSerializer, DriverSerializer, VehicleSerializer
+from .utils import generate_courier_pdf
+
+class OtherLocationListView(generics.ListAPIView):
+    serializer_class = LocationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        staff_account = StaffAccount.objects.get(user=self.request.user)
+        assigned_location = staff_account.assigned_location
+        if assigned_location:
+            return Location.objects.exclude(id=assigned_location.id)
+        return Location.objects.all()
+
+class CourierListView(generics.ListAPIView):
+    serializer_class = CourierSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        staff_account = StaffAccount.objects.get(user=self.request.user)
+        assigned_location = staff_account.assigned_location
+        if not assigned_location:
+            return Courier.objects.none()
+            
+        status_filter = self.request.query_params.get('status', 'all').lower()
+        
+        queryset = Courier.objects.all()
+        
+        if status_filter == 'inplace':
+            return queryset.filter(status='inplace', from_location=assigned_location)
+        elif status_filter == 'shipping':
+            return queryset.filter(status='shipping', from_location=assigned_location)
+        elif status_filter == 'sent':
+            return queryset.filter(status='delevered', from_location=assigned_location)
+        elif status_filter == 'incoming':
+            return queryset.filter(
+                Q(status='shipping') | Q(status='inplace'),
+                to_location=assigned_location
+            )
+        elif status_filter == 'recieved':
+            return queryset.filter(status='delevered', to_location=assigned_location)
+        else: # 'all' or any other value
+            return queryset.filter(
+                Q(from_location=assigned_location) | Q(to_location=assigned_location)
+            )
+
+class CourierDetailView(generics.RetrieveAPIView):
+    queryset = Courier.objects.all()
+    serializer_class = CourierSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class CourierCreateView(generics.CreateAPIView):
+    serializer_class = CourierSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Save the courier
+        staff_account = StaffAccount.objects.get(user=self.request.user)
+        courier = serializer.save(
+            created_by=staff_account,
+            from_location=staff_account.assigned_location
+        )
+
+        # Generate PDF
+        pdf_buffer = generate_courier_pdf(courier)
+        
+        # Return PDF response
+        response_obj = HttpResponse(pdf_buffer, content_type='application/pdf', status=status.HTTP_201_CREATED)
+        response_obj['Content-Disposition'] = f'attachment; filename="courier_{courier.invoice_number}.pdf"'
+        return response_obj
+
+class CourierAssignRouteView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CourierSerializer
+
+    def patch(self, request, *args, **kwargs):
+        courier_id = request.data.get('courier_id')
+        route_id = request.data.get('route_id')
+        
+        if not courier_id or not route_id:
+            return response.Response({"error": "courier_id and route_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            courier = Courier.objects.get(id=courier_id)
+            route = Route.objects.get(id=route_id)
+            
+            courier.route = route
+            courier.vehicle = route.vehicle
+            courier.status = 'shipping'
+            courier.save()
+            
+            serializer = self.get_serializer(courier)
+            return response.Response(serializer.data, status=status.HTTP_200_OK)
+        except Courier.DoesNotExist:
+            return response.Response({"error": "Courier not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Route.DoesNotExist:
+            return response.Response({"error": "Route not found"}, status=status.HTTP_404_NOT_FOUND)
+
+class CourierMarkShippingView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CourierSerializer
+
+    def patch(self, request, pk=None, *args, **kwargs):
+        staff_account = StaffAccount.objects.get(user=request.user)
+        courier_ids = request.data.get('courier_ids')
+
+        if courier_ids and isinstance(courier_ids, list):
+            # Bulk update
+            updated_couriers = []
+            couriers = Courier.objects.filter(id__in=courier_ids)
+            for courier in couriers:
+                # Silently skip if not inplace or not from staff's location
+                if courier.status == 'inplace' and courier.from_location == staff_account.assigned_location:
+                    courier.status = 'shipping'
+                    courier.save()
+                    updated_couriers.append(courier)
+            
+            serializer = self.get_serializer(updated_couriers, many=True)
+            return response.Response(serializer.data, status=status.HTTP_200_OK)
+            
+        else:
+            # Single update (using pk from URL)
+            if not pk:
+                return response.Response({"error": "courier_ids list or URL pk is required"}, status=status.HTTP_400_BAD_REQUEST)
+                
+            try:
+                courier = Courier.objects.get(pk=pk)
+                if courier.status != 'inplace':
+                    return response.Response({"error": "Courier is not in 'inplace' status"}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                if courier.from_location != staff_account.assigned_location:
+                    return response.Response({"error": "This courier is not at your assigned location"}, status=status.HTTP_403_FORBIDDEN)
+                
+                courier.status = 'shipping'
+                courier.save()
+                
+                serializer = self.get_serializer(courier)
+                return response.Response(serializer.data, status=status.HTTP_200_OK)
+            except Courier.DoesNotExist:
+                return response.Response({"error": "Courier not found"}, status=status.HTTP_404_NOT_FOUND)
+
+class CourierMarkDeliveredView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CourierSerializer
+
+    def patch(self, request, pk=None, *args, **kwargs):
+        staff_account = StaffAccount.objects.get(user=request.user)
+        courier_ids = request.data.get('courier_ids')
+
+        if courier_ids and isinstance(courier_ids, list):
+            # Bulk update
+            updated_couriers = []
+            couriers = Courier.objects.filter(id__in=courier_ids)
+            for courier in couriers:
+                # Silently skip if not shipping or not arriving at staff's location
+                if courier.status == 'shipping' and courier.to_location == staff_account.assigned_location:
+                    courier.status = 'delevered'
+                    courier.save()
+                    updated_couriers.append(courier)
+            
+            serializer = self.get_serializer(updated_couriers, many=True)
+            return response.Response(serializer.data, status=status.HTTP_200_OK)
+            
+        else:
+            # Single update (using pk from URL)
+            if not pk:
+                return response.Response({"error": "courier_ids list or URL pk is required"}, status=status.HTTP_400_BAD_REQUEST)
+                
+            try:
+                courier = Courier.objects.get(pk=pk)
+                if courier.status != 'shipping':
+                    return response.Response({"error": "Courier is not in 'shipping' status"}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                if courier.to_location != staff_account.assigned_location:
+                    return response.Response({"error": "This courier is not arriving at your assigned location"}, status=status.HTTP_403_FORBIDDEN)
+                
+                courier.status = 'delevered'
+                courier.save()
+                
+                serializer = self.get_serializer(courier)
+                return response.Response(serializer.data, status=status.HTTP_200_OK)
+            except Courier.DoesNotExist:
+                return response.Response({"error": "Courier not found"}, status=status.HTTP_404_NOT_FOUND)
+
+class RouteCreateView(generics.CreateAPIView):
+    queryset = Route.objects.all()
+    serializer_class = RouteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class RouteDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Route.objects.all()
+    serializer_class = RouteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class RouteListView(generics.ListAPIView):
+    queryset = Route.objects.all()
+    serializer_class = RouteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class DriverListView(generics.ListAPIView):
+    queryset = Driver.objects.all()
+    serializer_class = DriverSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class VehicleListView(generics.ListAPIView):
+    queryset = Vehicle.objects.all()
+    serializer_class = VehicleSerializer
+    permission_classes = [permissions.IsAuthenticated]
