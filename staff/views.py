@@ -147,7 +147,7 @@ class CourierListView(generics.ListAPIView):
                 to_location=assigned_location
             )
         elif status_filter == 'recieved':
-            return queryset.filter(status='delevered', to_location=assigned_location,delivered_to_customer=False)
+            return queryset.filter(status='delevered', to_location=assigned_location)
         else: # 'all' or any other value
             return queryset.filter(
                 Q(from_location=assigned_location) | 
