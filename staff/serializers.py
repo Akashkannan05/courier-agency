@@ -1,21 +1,7 @@
 from rest_framework import serializers
 from .models import Courier, Payment, Location, Driver, Route, Vehicle, GDM
 
-class GDMSerializer(serializers.ModelSerializer):
-    total_weights = serializers.ReadOnlyField()
-    total_couriers_count = serializers.ReadOnlyField()
-    total_price = serializers.ReadOnlyField()
-    driver_name = serializers.ReadOnlyField()
-    driver_phone_num = serializers.ReadOnlyField()
 
-    class Meta:
-        model = GDM
-        fields = [
-            'id', 'gdm_number', 'vehicle_number', 'driver', 'route', 'couriers', 
-            'dispatch_date', 'status', 'total_weights', 'all_locations',
-            'total_couriers_count', 'total_price', 'driver_name', 'driver_phone_num'
-        ]
-        read_only_fields = ['id', 'gdm_number', 'dispatch_date']
 
 class DriverSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,6 +12,14 @@ class RouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Route
         fields = ['id', 'from_location', 'to_location', 'route_path', 'driver', 'vehicle']
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['from_location'] = LocationSerializer(instance.from_location).data
+        rep['to_location'] = LocationSerializer(instance.to_location).data
+        rep['driver'] = DriverSerializer(instance.driver).data
+        rep['vehicle'] = VehicleSerializer(instance.vehicle).data
+        return rep
 
 class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,6 +47,16 @@ class CourierSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'total', 'from_location']
 
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['from_location'] = LocationSerializer(instance.from_location).data
+        rep['to_location'] = LocationSerializer(instance.to_location).data
+        if instance.vehicle:
+            rep['vehicle'] = VehicleSerializer(instance.vehicle).data
+        if instance.route:
+            rep['route'] = RouteSerializer(instance.route).data
+        return rep
+
     def create(self, validated_data):
         payment_status = validated_data.pop('payment_status')
         payment_mode = validated_data.pop('payment_mode')
@@ -79,3 +83,25 @@ class CourierSerializer(serializers.ModelSerializer):
         # Create Courier
         courier = Courier.objects.create(payment=payment, **validated_data)
         return courier
+
+class GDMSerializer(serializers.ModelSerializer):
+    total_weights = serializers.ReadOnlyField()
+    total_couriers_count = serializers.ReadOnlyField()
+    total_price = serializers.ReadOnlyField()
+    driver_name = serializers.ReadOnlyField()
+    driver_phone_num = serializers.ReadOnlyField()
+
+    class Meta:
+        model = GDM
+        fields = [
+            'id', 'gdm_number', 'vehicle_number', 'driver', 'route', 'couriers', 
+            'dispatch_date', 'status', 'total_weights', 'all_locations',
+            'total_couriers_count', 'total_price', 'driver_name', 'driver_phone_num'
+        ]
+        read_only_fields = ['id', 'gdm_number', 'dispatch_date']
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['driver'] = DriverSerializer(instance.driver).data
+        rep['route'] = RouteSerializer(instance.route).data
+        return rep
