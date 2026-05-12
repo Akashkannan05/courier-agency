@@ -10,7 +10,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -145,6 +150,6 @@ SIMPLE_JWT = {
 }
 
 # Twilio Settings
-TWILIO_ACCOUNT_SID = 'AC40532513cc2297bcf30b0b65d1826fa8'
-TWILIO_AUTH_TOKEN = 'fe75b1c67b92a2a0c5d87c0f98520434'
-TWILIO_PHONE_NUMBER = '+18459577359'
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
+TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER')

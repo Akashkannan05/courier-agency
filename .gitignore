@@ -2,3 +2,4 @@ frontend/
 db.sqlite3
 venv/
 *__pycacahe__/
+.env
