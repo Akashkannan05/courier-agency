@@ -326,6 +326,53 @@ class CourierAPITest(APITestCase):
         self.assertEqual(response.data['invoice_number'], "RET1")
         self.assertEqual(response.data['sender_name'], "Alice")
 
+    def test_create_gdm_api(self):
+        # Setup route, vehicle, driver
+        driver = Driver.objects.create(user=User.objects.create_user(username="gdmdr", password="p"), license_number="L_GDM")
+        vehicle = Vehicle.objects.create(vehicle_number="V_GDM", driver_name="D_GDM")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        
+        # Create couriers with same route and vehicle
+        c1 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            route=route, vehicle=vehicle, invoice_number="G1", parcel_information=[], weight=10, delivery_type="Door Delivery"
+        )
+        c2 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            route=route, vehicle=vehicle, invoice_number="G2", parcel_information=[], weight=5, delivery_type="Door Delivery"
+        )
+        
+        url = reverse('gdm-create')
+        data = {"couriers": [c1.id, c2.id]}
+        response = self.client.post(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['vehicle_number'], "V_GDM")
+        self.assertEqual(response.data['total_weights'], 15)
+        self.assertEqual(response.data['total_couriers_count'], 2)
+
+    def test_create_gdm_mismatch(self):
+        # Setup 2 different routes
+        driver = Driver.objects.create(user=User.objects.create_user(username="gdmdr2", password="p"), license_number="L_GDM2")
+        vehicle = Vehicle.objects.create(vehicle_number="V_GDM2", driver_name="D_GDM2")
+        route1 = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        route2 = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=["Stop"], driver=driver, vehicle=vehicle)
+        
+        c1 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            route=route1, vehicle=vehicle, invoice_number="GM1", parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        c2 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            route=route2, vehicle=vehicle, invoice_number="GM2", parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        url = reverse('gdm-create')
+        data = {"couriers": [c1.id, c2.id]}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], "All couriers must belong to the same route")
+
     def test_list_other_locations(self):
         url = reverse('other-locations-list')
         response = self.client.get(url)

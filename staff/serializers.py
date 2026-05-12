@@ -1,5 +1,21 @@
 from rest_framework import serializers
-from .models import Courier, Payment, Location, Driver, Route, Vehicle
+from .models import Courier, Payment, Location, Driver, Route, Vehicle, GDM
+
+class GDMSerializer(serializers.ModelSerializer):
+    total_weights = serializers.ReadOnlyField()
+    total_couriers_count = serializers.ReadOnlyField()
+    total_price = serializers.ReadOnlyField()
+    driver_name = serializers.ReadOnlyField()
+    driver_phone_num = serializers.ReadOnlyField()
+
+    class Meta:
+        model = GDM
+        fields = [
+            'id', 'gdm_number', 'vehicle_number', 'driver', 'route', 'couriers', 
+            'dispatch_date', 'status', 'total_weights', 
+            'total_couriers_count', 'total_price', 'driver_name', 'driver_phone_num'
+        ]
+        read_only_fields = ['id', 'gdm_number', 'dispatch_date']
 
 class DriverSerializer(serializers.ModelSerializer):
     class Meta:
@@ -28,14 +44,14 @@ class CourierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Courier
         fields = [
-            'id', 'to_location', 'vehicle', 'sender_name', 'receiver_name', 'from_address', 
+            'id', 'from_location', 'to_location', 'vehicle', 'sender_name', 'receiver_name', 'from_address',
             'to_address', 'sender_phone_num', 'receiver_phone_num', 
             'parcel_information', 'weight', 'invoice_number', 'freight', 
             'loading_unloading', 'door_pickup', 'other_transport_crossing', 
             'mamool', 'statistical_charges', 'door_delivery', 'delivery_type',
             'payment_status', 'payment_mode', 'total', 'lr_number', 'status', 'route'
         ]
-        read_only_fields = ['id', 'total']
+        read_only_fields = ['id', 'total', 'from_location']
 
     def create(self, validated_data):
         payment_status = validated_data.pop('payment_status')

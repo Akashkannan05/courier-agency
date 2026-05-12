@@ -3,9 +3,62 @@ from django.contrib.auth import authenticate
 from rest_framework import generics, permissions, status, response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.http import HttpResponse
-from .models import Courier, StaffAccount, Location, Route, Driver, Vehicle
-from .serializers import CourierSerializer, LocationSerializer, RouteSerializer, DriverSerializer, VehicleSerializer
+from .models import Courier, StaffAccount, Location, Route, Driver, Vehicle, GDM
+from .serializers import (
+    CourierSerializer, LocationSerializer, RouteSerializer, 
+    DriverSerializer, VehicleSerializer, GDMSerializer
+)
 from .utils import generate_courier_pdf
+
+class GDMCreateView(generics.CreateAPIView):
+    serializer_class = GDMSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        courier_ids = request.data.get('couriers', [])
+        if not courier_ids:
+            return response.Response({"error": "couriers list is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        couriers = Courier.objects.filter(id__in=courier_ids)
+        if couriers.count() != len(courier_ids):
+            return response.Response({"error": "Some couriers not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Check if all couriers have the same route and vehicle
+        routes = set(couriers.values_list('route', flat=True))
+        vehicles = set(couriers.values_list('vehicle', flat=True))
+        
+        if len(routes) > 1:
+            return response.Response({"error": "All couriers must belong to the same route"}, status=status.HTTP_400_BAD_REQUEST)
+        if len(vehicles) > 1:
+            return response.Response({"error": "All couriers must belong to the same vehicle"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        route_id = list(routes)[0]
+        vehicle_id = list(vehicles)[0]
+        
+        if route_id is None:
+            return response.Response({"error": "Couriers must have an assigned route"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        route = Route.objects.get(id=route_id)
+        # vehicle_id might be None if courier.vehicle is not set, but usually it should be set if route is set.
+        # But let's use the route's vehicle if available.
+        vehicle = route.vehicle
+        
+        staff_account = StaffAccount.objects.filter(user=request.user).first()
+        if not staff_account:
+             return response.Response({"error": "Staff account not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        gdm = GDM.objects.create(
+            created_by=staff_account,
+            vehicle_number=vehicle.vehicle_number,
+            driver=route.driver,
+            route=route,
+            status='unshipped'
+        )
+        gdm.couriers.set(couriers)
+        gdm.save()
+        
+        serializer = self.get_serializer(gdm)
+        return response.Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class StaffLoginView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
@@ -235,6 +288,14 @@ class RouteCreateView(generics.CreateAPIView):
     queryset = Route.objects.all()
     serializer_class = RouteSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if staff_account and staff_account.assigned_location:
+            serializer.save(from_location=staff_account.assigned_location)
+        else:
+            # Fallback if no staff account or assigned location (though usually required)
+            serializer.save()
 
 class RouteDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Route.objects.all()
