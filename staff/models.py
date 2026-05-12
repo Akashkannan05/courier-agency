@@ -224,7 +224,7 @@ class Reason(models.Model):
 class Expense(models.Model):
     reason = models.ForeignKey(Reason, on_delete=models.CASCADE, related_name='expenses')
     staff = models.ForeignKey(StaffAccount, on_delete=models.CASCADE, related_name='expenses')
-    text = models.TextField()
+    text = models.TextField(null=True, blank=True)
     amount = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
