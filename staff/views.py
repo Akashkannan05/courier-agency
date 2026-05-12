@@ -114,7 +114,7 @@ class CourierListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        staff_account = StaffAccount.objects.get(user=self.request.user)
         if not staff_account:
             return Location.objects.all()
         assigned_location = staff_account.assigned_location
@@ -191,7 +191,7 @@ class CourierAssignRouteView(generics.GenericAPIView):
             
             courier.route = route
             courier.vehicle = route.vehicle
-            courier.status = 'shipping'
+            # courier.status = 'shipping'
             courier.save()
             
             serializer = self.get_serializer(courier)
