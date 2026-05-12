@@ -87,7 +87,7 @@ class Courier(models.Model):
     STATUS_CHOICES = [
         ('inplace', 'In Place'),
         ('shipping', 'Shipping'),
-        ('delevered', 'Delevered'),
+        ('delivered', 'Delivered'),
     ]
 
     created_by = models.ForeignKey(StaffAccount, on_delete=models.CASCADE, related_name='created_couriers')
@@ -169,7 +169,7 @@ class GDM(models.Model):
             return "inplace"
         if 'shipping' in statuses:
             return "shipping"
-        if all(s == 'delevered' for s in statuses):
+        if all(s == 'delivered' for s in statuses):
             return "sent"
             
         return "unshipped"
