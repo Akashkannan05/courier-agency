@@ -43,6 +43,6 @@ class CourierAdmin(admin.ModelAdmin):
 @admin.register(GDM)
 class GDMAdmin(admin.ModelAdmin):
     list_display = ('gdm_number', 'vehicle_number', 'driver', 'status', 'dispatch_date')
-    list_filter = ('status', 'dispatch_date')
+    list_filter = ('dispatch_date',)
     search_fields = ('gdm_number', 'vehicle_number', 'driver__user_name')
     readonly_fields = ('gdm_number',)

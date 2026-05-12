@@ -98,7 +98,7 @@ class GDMSerializer(serializers.ModelSerializer):
             'dispatch_date', 'status', 'total_weights', 'all_locations',
             'total_couriers_count', 'total_price', 'driver_name', 'driver_phone_num'
         ]
-        read_only_fields = ['id', 'gdm_number', 'dispatch_date']
+        read_only_fields = ['id', 'gdm_number', 'dispatch_date', 'status']
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)

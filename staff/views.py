@@ -51,8 +51,7 @@ class GDMCreateView(generics.CreateAPIView):
             created_by=staff_account,
             vehicle_number=vehicle.vehicle_number,
             driver=route.driver,
-            route=route,
-            status='unshipped'
+            route=route
         )
         gdm.couriers.set(couriers)
         gdm.save()
@@ -69,6 +68,16 @@ class GDMListView(generics.ListAPIView):
         if not staff_account:
             return GDM.objects.none()
         return GDM.objects.filter(created_by=staff_account).order_by('-dispatch_date')
+
+class GDMDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = GDMSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account:
+            return GDM.objects.none()
+        return GDM.objects.filter(created_by=staff_account)
 
 class StaffLoginView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]

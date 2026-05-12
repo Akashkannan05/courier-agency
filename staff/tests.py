@@ -421,7 +421,7 @@ class CourierAPITest(APITestCase):
         route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=["Midway"], driver=driver, vehicle=vehicle)
         
         gdm = GDM.objects.create(
-            created_by=self.staff, vehicle_number="V_GDML", driver=driver, route=route, status='unshipped'
+            created_by=self.staff, vehicle_number="V_GDML", driver=driver, route=route
         )
         
         url = reverse('gdm-list')
@@ -439,7 +439,7 @@ class CourierAPITest(APITestCase):
         route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
         
         GDM.objects.create(
-            created_by=other_staff, vehicle_number="V2", driver=driver, route=route, status='unshipped'
+            created_by=other_staff, vehicle_number="V2", driver=driver, route=route
         )
         
         # Current staff (self.user) should see 0 GDMs initially
@@ -449,10 +449,88 @@ class CourierAPITest(APITestCase):
         
         # Create one for current staff
         GDM.objects.create(
-            created_by=self.staff, vehicle_number="V1", driver=driver, route=route, status='unshipped'
+            created_by=self.staff, vehicle_number="V1", driver=driver, route=route
         )
         response = self.client.get(url)
         self.assertEqual(len(response.data), 1)
+
+    def test_gdm_status_property(self):
+        driver = Driver.objects.create(user_name="d_status", license_number="L_STATUS")
+        vehicle = Vehicle.objects.create(vehicle_number="V_STATUS")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        
+        c1 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            status='inplace', invoice_number="C1_S", parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        c2 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            status='delevered', invoice_number="C2_S", parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        
+        gdm = GDM.objects.create(created_by=self.staff, vehicle_number="V_STATUS", driver=driver, route=route)
+        gdm.couriers.set([c1, c2])
+        
+        # Mixed status -> unshipped
+        self.assertEqual(gdm.status, "unshipped")
+        
+        # Change c1 to delevered
+        c1.status = 'delevered'
+        c1.save()
+        self.assertEqual(gdm.status, "shipped")
+        
+        # Empty couriers -> unshipped
+        gdm.couriers.clear()
+        self.assertEqual(gdm.status, "unshipped")
+
+    def test_update_gdm_api(self):
+        driver = Driver.objects.create(user_name="updr", license_number="LU")
+        vehicle = Vehicle.objects.create(vehicle_number="VU")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        gdm = GDM.objects.create(created_by=self.staff, vehicle_number="OLD_V", driver=driver, route=route)
+        
+        url = reverse('gdm-detail', kwargs={'pk': gdm.pk})
+        data = {"vehicle_number": "NEW_V"}
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        gdm.refresh_from_db()
+        self.assertEqual(gdm.vehicle_number, "NEW_V")
+
+    def test_delete_gdm_api(self):
+        driver = Driver.objects.create(user_name="deldr", license_number="LD")
+        vehicle = Vehicle.objects.create(vehicle_number="VD")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        gdm = GDM.objects.create(created_by=self.staff, vehicle_number="VD", driver=driver, route=route)
+        
+        url = reverse('gdm-detail', kwargs={'pk': gdm.pk})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(GDM.objects.count(), 0)
+
+    def test_gdm_permissions(self):
+        # Create GDM by another staff
+        other_user = User.objects.create_user(username="otherstaff2", password="password")
+        other_staff = StaffAccount.objects.create(user=other_user, assigned_location=self.location1)
+        driver = Driver.objects.create(user_name="dr3", license_number="L3")
+        vehicle = Vehicle.objects.create(vehicle_number="V3")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        gdm = GDM.objects.create(created_by=other_staff, vehicle_number="V3", driver=driver, route=route)
+        
+        # Authenticated as self.user, try to access other_staff's GDM
+        url = reverse('gdm-detail', kwargs={'pk': gdm.pk})
+        
+        # GET should be 404 because get_queryset filters it out
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        
+        # PATCH should be 404
+        response = self.client.patch(url, {"vehicle_number": "HACKED"}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        
+        # DELETE should be 404
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_list_other_locations(self):
         url = reverse('other-locations-list')
