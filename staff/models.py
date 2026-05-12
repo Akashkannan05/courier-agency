@@ -18,6 +18,7 @@ class Vehicle(models.Model):
 class Driver(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='driver_profile')
     license_number = models.CharField(max_length=50, unique=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.license_number})"
@@ -145,3 +146,46 @@ class Courier(models.Model):
 
     def __str__(self):
         return f"Courier {self.lr_number or self.invoice_number} - {self.sender_name} to {self.receiver_name}"
+
+class GDM(models.Model):
+    gdm_number = models.CharField(max_length=50, unique=True, editable=False, null=True, blank=True)
+    created_by = models.ForeignKey(StaffAccount, on_delete=models.CASCADE, related_name='created_gdms', null=True, blank=True)
+    vehicle_number = models.CharField(max_length=20)
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name='gdms')
+    couriers = models.ManyToManyField(Courier, related_name='gdms')
+    dispatch_date = models.DateTimeField(auto_now_add=True)
+    route = models.ForeignKey(Route, on_delete=models.CASCADE, related_name='gdms')
+    status = models.CharField(max_length=20, choices=[('shipped', 'Shipped'), ('unshipped', 'Unshipped')], default='unshipped')
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        if is_new and not self.gdm_number:
+            location = self.created_by.assigned_location
+            short_code = location.short_code if location else "UNK"
+            self.gdm_number = f"GDM-{short_code}-{self.id}"
+            super().save(update_fields=['gdm_number'])
+
+    @property
+    def total_weights(self):
+        return sum(c.weight for c in self.couriers.all())
+
+    @property
+    def total_couriers_count(self):
+        return self.couriers.count()
+
+    @property
+    def total_price(self):
+        return sum(c.total for c in self.couriers.all())
+
+    @property
+    def driver_name(self):
+        return self.driver.user.get_full_name() or self.driver.user.username
+
+    @property
+    def driver_phone_num(self):
+        return self.driver.phone_number
+
+    def __str__(self):
+        return f"GDM {self.id} - {self.vehicle_number} on {self.dispatch_date.date()}"

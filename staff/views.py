@@ -39,7 +39,9 @@ class OtherLocationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        staff_account = StaffAccount.objects.get(user=self.request.user)
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account:
+            return Location.objects.all()
         assigned_location = staff_account.assigned_location
         if assigned_location:
             return Location.objects.exclude(id=assigned_location.id)
@@ -50,7 +52,9 @@ class CourierListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        staff_account = StaffAccount.objects.get(user=self.request.user)
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account:
+            return Location.objects.all()
         assigned_location = staff_account.assigned_location
         if not assigned_location:
             return Courier.objects.none()
@@ -91,7 +95,10 @@ class CourierCreateView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         
         # Save the courier
-        staff_account = StaffAccount.objects.get(user=self.request.user)
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account:
+            return response.Response({"error": "Staff account not found"}, status=status.HTTP_404_NOT_FOUND)
+        
         courier = serializer.save(
             created_by=staff_account,
             from_location=staff_account.assigned_location
@@ -137,7 +144,10 @@ class CourierMarkShippingView(generics.GenericAPIView):
     serializer_class = CourierSerializer
 
     def patch(self, request, pk=None, *args, **kwargs):
-        staff_account = StaffAccount.objects.get(user=request.user)
+        staff_account = StaffAccount.objects.filter(user=request.user).first()
+        if not staff_account:
+            return response.Response({"error": "Staff account not found"}, status=status.HTTP_404_NOT_FOUND)
+            
         courier_ids = request.data.get('courier_ids')
 
         if courier_ids and isinstance(courier_ids, list):
@@ -180,7 +190,10 @@ class CourierMarkDeliveredView(generics.GenericAPIView):
     serializer_class = CourierSerializer
 
     def patch(self, request, pk=None, *args, **kwargs):
-        staff_account = StaffAccount.objects.get(user=request.user)
+        staff_account = StaffAccount.objects.filter(user=request.user).first()
+        if not staff_account:
+            return response.Response({"error": "Staff account not found"}, status=status.HTTP_404_NOT_FOUND)
+            
         courier_ids = request.data.get('courier_ids')
 
         if courier_ids and isinstance(courier_ids, list):
