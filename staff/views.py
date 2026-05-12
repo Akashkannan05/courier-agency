@@ -133,7 +133,7 @@ class CourierListView(generics.ListAPIView):
             return queryset.filter(status='delevered', from_location=assigned_location)
         elif status_filter == 'incoming':
             return queryset.filter(
-                Q(status='shipping') | Q(status='inplace'),
+                status='shipping',
                 to_location=assigned_location
             )
         elif status_filter == 'recieved':
@@ -216,6 +216,15 @@ class CourierMarkShippingView(generics.GenericAPIView):
             # Bulk update
             updated_couriers = []
             couriers = Courier.objects.filter(id__in=courier_ids)
+            
+            # First check if all couriers have a route assigned
+            for courier in couriers:
+                if not courier.route:
+                    return response.Response(
+                        {"error": f"Courier {courier.lr_number or courier.id} does not have an assigned route"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
             for courier in couriers:
                 # Silently skip if not inplace or not from staff's location
                 if courier.status == 'inplace' and courier.from_location == staff_account.assigned_location:
@@ -239,6 +248,9 @@ class CourierMarkShippingView(generics.GenericAPIView):
                 if courier.from_location != staff_account.assigned_location:
                     return response.Response({"error": "This courier is not at your assigned location"}, status=status.HTTP_403_FORBIDDEN)
                 
+                if not courier.route:
+                    return response.Response({"error": "Courier does not have an assigned route"}, status=status.HTTP_400_BAD_REQUEST)
+
                 courier.status = 'shipping'
                 courier.save()
                 

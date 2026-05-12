@@ -221,9 +221,15 @@ class CourierAPITest(APITestCase):
         self.assertEqual(courier.status, 'shipping')
 
     def test_mark_shipping(self):
+        route = Route.objects.create(
+            from_location=self.location1, to_location=self.location2, route_path=[],
+            driver=Driver.objects.create(user_name="dr_sh", license_number="L_SH"),
+            vehicle=Vehicle.objects.create(vehicle_number="V_SH")
+        )
         courier = Courier.objects.create(
             created_by=self.staff, from_location=self.location1, to_location=self.location2,
-            status='inplace', invoice_number="INV_SH1", parcel_information=[], weight=1, delivery_type="Door Delivery"
+            status='inplace', invoice_number="INV_SH1", parcel_information=[], weight=1, 
+            delivery_type="Door Delivery", route=route
         )
         url = reverse('courier-mark-shipping', kwargs={'pk': courier.pk})
         response = self.client.patch(url)
@@ -231,6 +237,16 @@ class CourierAPITest(APITestCase):
         
         courier.refresh_from_db()
         self.assertEqual(courier.status, 'shipping')
+
+    def test_mark_shipping_no_route(self):
+        courier = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            status='inplace', invoice_number="INV_SH_NO", parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        url = reverse('courier-mark-shipping', kwargs={'pk': courier.pk})
+        response = self.client.patch(url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], "Courier does not have an assigned route")
 
     def test_mark_shipping_invalid_location(self):
         loc3 = Location.objects.create(name="Chicago", short_code="CH")
@@ -243,17 +259,25 @@ class CourierAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_bulk_mark_shipping(self):
+        route = Route.objects.create(
+            from_location=self.location1, to_location=self.location2, route_path=[],
+            driver=Driver.objects.create(user_name="dr_bulk", license_number="L_BULK"),
+            vehicle=Vehicle.objects.create(vehicle_number="V_BULK")
+        )
         c1 = Courier.objects.create(
             created_by=self.staff, from_location=self.location1, to_location=self.location2,
-            status='inplace', invoice_number="B1", parcel_information=[], weight=1, delivery_type="Door Delivery"
+            status='inplace', invoice_number="B1", parcel_information=[], weight=1, delivery_type="Door Delivery",
+            route=route
         )
         c2 = Courier.objects.create(
             created_by=self.staff, from_location=self.location1, to_location=self.location2,
-            status='inplace', invoice_number="B2", parcel_information=[], weight=1, delivery_type="Door Delivery"
+            status='inplace', invoice_number="B2", parcel_information=[], weight=1, delivery_type="Door Delivery",
+            route=route
         )
         c3 = Courier.objects.create(
             created_by=self.staff, from_location=self.location1, to_location=self.location2,
-            status='shipping', invoice_number="B3", parcel_information=[], weight=1, delivery_type="Door Delivery"
+            status='shipping', invoice_number="B3", parcel_information=[], weight=1, delivery_type="Door Delivery",
+            route=route
         )
         
         url = reverse('courier-bulk-mark-shipping')
@@ -266,6 +290,17 @@ class CourierAPITest(APITestCase):
         self.assertEqual(c1.status, 'shipping')
         c3.refresh_from_db()
         self.assertEqual(c3.status, 'shipping') # Was already shipping
+
+    def test_bulk_mark_shipping_no_route(self):
+        c1 = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            status='inplace', invoice_number="B1_NO", parcel_information=[], weight=1, delivery_type="Door Delivery"
+        )
+        url = reverse('courier-bulk-mark-shipping')
+        data = {"courier_ids": [c1.id]}
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("does not have an assigned route", response.data['error'])
 
     def test_mark_delivered(self):
         # Courier is shipping to location1 (staff's location)
