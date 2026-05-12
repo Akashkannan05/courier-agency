@@ -515,6 +515,12 @@ class ExpenseListView(generics.ListCreateAPIView):
     serializer_class = ExpenseSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+        if not staff_account:
+            return Expense.objects.none()
+        return Expense.objects.filter(staff=staff_account).order_by('-created_at')
+
     def perform_create(self, serializer):
         staff_account = StaffAccount.objects.filter(user=self.request.user).first()
         serializer.save(staff=staff_account)
