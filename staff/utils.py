@@ -96,10 +96,18 @@ def generate_courier_pdf(courier):
     buffer.seek(0)
     return buffer
 
+def format_phone(phone):
+    phone = str(phone).strip()
+    if len(phone) == 10 and phone.isdigit():
+        return f"+91{phone}"
+    return phone
+
 def send_sms(to_number, body):
     """
     Sends an SMS message using Twilio.
     """
+    to_number = format_phone(to_number)
+    print(f"Attempting to send SMS to {to_number}...")
     try:
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         message = client.messages.create(
@@ -107,7 +115,8 @@ def send_sms(to_number, body):
             from_=settings.TWILIO_PHONE_NUMBER,
             to=to_number
         )
+        print(f"SMS sent successfully! SID: {message.sid}")
         return message.sid
     except Exception as e:
-        print(f"Error sending SMS: {e}")
+        print(f"Error sending SMS to {to_number}: {e}")
         return None

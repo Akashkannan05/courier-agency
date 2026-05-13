@@ -260,6 +260,7 @@ class CourierCreateView(generics.CreateAPIView):
             account.save()
 
         # Send SMS Notifications
+        print(f"Creating SMS for courier {courier.lr_number}...")
         sms_body = (
             f"Dear Customer,\n"
             f"Your parcel has been successfully booked with Sa Salem Super Service.\n"
@@ -272,17 +273,9 @@ class CourierCreateView(generics.CreateAPIView):
             f"Thank you for choosing Sa Salem Super Service."
         )
 
-        def format_phone(phone):
-            phone = str(phone).strip()
-            if len(phone) == 10 and phone.isdigit():
-                return f"+91{phone}"
-            return phone
-
-        sender_phone = format_phone(courier.sender_phone_num)
-        receiver_phone = format_phone(courier.receiver_phone_num)
-
-        send_sms(sender_phone, sms_body)
-        send_sms(receiver_phone, sms_body)
+        print(f"Sending booking SMS to sender: {courier.sender_phone_num} and receiver: {courier.receiver_phone_num}")
+        send_sms(courier.sender_phone_num, sms_body)
+        send_sms(courier.receiver_phone_num, sms_body)
 
         # Generate PDF
         pdf_buffer = generate_courier_pdf(courier)
@@ -399,6 +392,7 @@ class CourierMarkDeleveredView(generics.GenericAPIView):
                     courier.save()
                     
                     # Send SMS Notification
+                    print(f"Sending 'reached' SMS for courier {courier.lr_number}...")
                     sms_body = (
                         f"Dear Customer,\n"
                         f"Your parcel has reached the Sa Salem Super Service office successfully.\n"
@@ -406,21 +400,12 @@ class CourierMarkDeleveredView(generics.GenericAPIView):
                         f"From: {courier.from_address}\n"
                         f"To: {courier.to_address}\n"
                         f"You may contact the destination office for delivery or pickup details.\n"
-                        f"For support, contact us at +91 12345 67890.\n"
+                        f"For support, contact us at +919788321354\n"
                         f"Thank you for choosing Sa Salem Super Service."
                     )
 
-                    def format_phone(phone):
-                        phone = str(phone).strip()
-                        if len(phone) == 10 and phone.isdigit():
-                            return f"+91{phone}"
-                        return phone
-
-                    sender_phone = format_phone(courier.sender_phone_num)
-                    receiver_phone = format_phone(courier.receiver_phone_num)
-
-                    send_sms(sender_phone, sms_body)
-                    send_sms(receiver_phone, sms_body)
+                    send_sms(courier.sender_phone_num, sms_body)
+                    send_sms(courier.receiver_phone_num, sms_body)
 
                     updated_couriers.append(courier)
             
@@ -444,6 +429,7 @@ class CourierMarkDeleveredView(generics.GenericAPIView):
                 courier.save()
                 
                 # Send SMS Notification
+                print(f"Sending 'reached' SMS for courier {courier.lr_number}...")
                 sms_body = (
                     f"Dear Customer,\n"
                     f"Your parcel has reached the Sa Salem Super Service office successfully.\n"
@@ -451,21 +437,12 @@ class CourierMarkDeleveredView(generics.GenericAPIView):
                     f"From: {courier.from_address}\n"
                     f"To: {courier.to_address}\n"
                     f"You may contact the destination office for delivery or pickup details.\n"
-                    f"For support, contact us at +91 12345 67890.\n"
+                    f"For support, contact us at +919788321354\n"
                     f"Thank you for choosing Sa Salem Super Service."
                 )
 
-                def format_phone(phone):
-                    phone = str(phone).strip()
-                    if len(phone) == 10 and phone.isdigit():
-                        return f"+91{phone}"
-                    return phone
-
-                sender_phone = format_phone(courier.sender_phone_num)
-                receiver_phone = format_phone(courier.receiver_phone_num)
-
-                send_sms(sender_phone, sms_body)
-                send_sms(receiver_phone, sms_body)
+                send_sms(courier.sender_phone_num, sms_body)
+                send_sms(courier.receiver_phone_num, sms_body)
                 
                 serializer = self.get_serializer(courier)
                 return response.Response(serializer.data, status=status.HTTP_200_OK)
