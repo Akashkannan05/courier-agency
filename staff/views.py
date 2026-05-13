@@ -259,24 +259,19 @@ class CourierCreateView(generics.CreateAPIView):
             account.revenue += courier.total
             account.save()
 
-        # Send SMS Notifications
-        print(f"Creating SMS for courier {courier.lr_number}...")
+        print(f"Sending 'booked' SMS for courier {courier.lr_number}...")
         sms_body = (
             f"Dear Customer,\n"
-            f"Your parcel has been successfully booked with Sa Salem Super Service.\n"
+            f"Your parcel has been booked with Sa Salem Super Service.\n"
             f"LR No: {courier.lr_number}\n"
             f"From: {courier.from_address}\n"
             f"To: {courier.to_address}\n"
-            f"Amount: ₹{courier.total}\n"
-            f"Payment Status: {courier.payment.status}\n"
-            f"For support or tracking assistance, contact us at +919788321354.\n"
+            f"For support, contact us at +919788321354\n"
             f"Thank you for choosing Sa Salem Super Service."
         )
 
-        print(f"Sending booking SMS to sender: {courier.sender_phone_num} and receiver: {courier.receiver_phone_num}")
         send_sms(courier.sender_phone_num, sms_body)
         send_sms(courier.receiver_phone_num, sms_body)
-
         # Generate PDF
         pdf_buffer = generate_courier_pdf(courier)
         
