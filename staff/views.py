@@ -215,8 +215,25 @@ class CourierDetailView(generics.RetrieveUpdateAPIView):
         payment_mode = request.data.get('payment_mode')
         
         if delivered_to_customer is not None:
+            old_delivered = instance.delivered_to_customer
             instance.delivered_to_customer = delivered_to_customer
             instance.save()
+            
+            if not old_delivered and delivered_to_customer:
+                # Send SMS Notification
+                print(f"Sending 'delivered to customer' SMS for courier {instance.lr_number}...")
+                sms_body = (
+                    f"Dear Customer,\n"
+                    f"Your parcel has been successfully delivered by Sa Salem Super Service.\n"
+                    f"LR No: {instance.lr_number}\n"
+                    f"From: {instance.from_address}\n"
+                    f"To: {instance.to_address}\n"
+                    f"Received By: {instance.getting_person_name}\n"
+                    f"Thank you for choosing Sa Salem Super Service. We appreciate your trust and look forward to serving you again.\n"
+                    f"For any queries, contact us at +919788321354"
+                )
+                send_sms(instance.sender_phone_num, sms_body)
+                send_sms(instance.receiver_phone_num, sms_body)
             
         if payment_status and hasattr(instance, 'payment') and instance.payment:
             old_status = instance.payment.status
@@ -266,6 +283,8 @@ class CourierCreateView(generics.CreateAPIView):
             f"LR No: {courier.lr_number}\n"
             f"From: {courier.from_address}\n"
             f"To: {courier.to_address}\n"
+            f"Amount: ₹{courier.total}\n"
+            f"Payment Status: {courier.payment.status}\n"
             f"For support, contact us at +919788321354\n"
             f"Thank you for choosing Sa Salem Super Service."
         )
