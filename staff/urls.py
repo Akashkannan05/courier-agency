@@ -8,9 +8,12 @@ from .views import (
     DeleveredCourierListView, PaidCourierListView, ToPayCourierListView,
     ReasonListView, ExpenseListView, AccountDetailView
 )
+from rest_framework_simplejwt.views import TokenRefreshView
+
 
 urlpatterns = [
     path('login/', StaffLoginView.as_view(), name='staff-login'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('gdms/create/', GDMCreateView.as_view(), name='gdm-create'),
     path('gdms/', GDMListView.as_view(), name='gdm-list'),
     path('gdms/<int:pk>/', GDMDetailView.as_view(), name='gdm-detail'),

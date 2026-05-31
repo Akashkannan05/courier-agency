@@ -1,7 +1,14 @@
 from django.urls import path
-from .views import CreateStaffUserView, TotalExpense, DispatchMemo, StaffListView, DriverListView, DriverCreateView, StaffCreateView, VehicleListView, VehicleCreateView, GDMDetailsListView
+from rest_framework_simplejwt.views import TokenRefreshView
+from .views import (
+    CreateStaffUserView, TotalExpense, DispatchMemo, StaffListView, 
+    DriverListView, DriverCreateView, StaffCreateView, VehicleListView, 
+    VehicleCreateView, GDMDetailsListView, AdminLoginView
+)
 
 urlpatterns = [
+    path('login/', AdminLoginView.as_view(), name='admin-login'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('staff/create/', StaffCreateView.as_view(), name='create-staff-user'),
     path('staff/', StaffListView.as_view(), name='staff-list'),
     path('expenses/', TotalExpense.as_view(), name='total-expenses'),

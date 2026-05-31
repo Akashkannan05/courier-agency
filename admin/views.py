@@ -1,4 +1,7 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status, response
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 from rest_framework.pagination import PageNumberPagination
 from staff.models import Expense, GDM, StaffAccount, Driver, Vehicle
 from .serializers import StaffUserSerializer, AdminExpenseSerializer, DispatchMemoSerializer, StaffListSerializer, DriverListSerializer, DriverCreateSerializer, StaffCreateSerializer, VehicleListSerializer, VehicleCreateSerializer, GDMDetailsSerializer
@@ -73,6 +76,44 @@ class GDMDetailsListView(generics.ListAPIView):
         if gdm_number:
             queryset = queryset.filter(gdm_number__iexact=gdm_number)
         return queryset
+
+
+class AdminLoginView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return response.Response({"error": "email and password are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = None
+        try:
+            if '@' in email:
+                user_obj = User.objects.get(email=email)
+            else:
+                user_obj = User.objects.get(username=email)
+            
+            authenticated_user = authenticate(username=user_obj.username, password=password)
+            if authenticated_user:
+                user = authenticated_user
+        except User.DoesNotExist:
+            user = authenticate(username=email, password=password)
+
+        if user:
+            if user.is_staff or user.is_superuser:
+                refresh = RefreshToken.for_user(user)
+                return response.Response({
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                    'username': user.username,
+                    'email': user.email
+                }, status=status.HTTP_200_OK)
+            else:
+                return response.Response({"error": "User is not an administrator"}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            return response.Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 

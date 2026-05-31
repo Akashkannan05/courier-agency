@@ -640,6 +640,89 @@ class GDMDetailsListAPITest(APITestCase):
         self.assertEqual(c2['route'], "Chennai -> Bangalore")
 
 
+class AdminLoginAPITest(APITestCase):
+    def setUp(self):
+        # Create an admin user (superuser/staff)
+        self.admin_user = User.objects.create_superuser(
+            username="adminuser", 
+            email="admin@example.com", 
+            password="adminpassword"
+        )
+        # Create a non-admin user
+        self.non_admin_user = User.objects.create_user(
+            username="regularuser", 
+            email="regular@example.com", 
+            password="regularpassword"
+        )
+        self.url = reverse('admin-login')
+
+    def test_login_success_with_email(self):
+        payload = {
+            "email": "admin@example.com",
+            "password": "adminpassword"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertIn("access", data)
+        self.assertIn("refresh", data)
+        self.assertEqual(data["username"], "adminuser")
+        self.assertEqual(data["email"], "admin@example.com")
+
+    def test_login_success_with_username(self):
+        payload = {
+            "email": "adminuser",
+            "password": "adminpassword"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertIn("access", data)
+        self.assertIn("refresh", data)
+
+    def test_login_failure_missing_fields(self):
+        payload = {
+            "email": "adminuser"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_login_failure_invalid_credentials(self):
+        payload = {
+            "email": "adminuser",
+            "password": "wrongpassword"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_login_failure_non_admin(self):
+        payload = {
+            "email": "regular@example.com",
+            "password": "regularpassword"
+        }
+        response = self.client.post(self.url, payload)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_token_refresh(self):
+        login_payload = {
+            "email": "admin@example.com",
+            "password": "adminpassword"
+        }
+        login_response = self.client.post(self.url, login_payload)
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        refresh_token = login_response.json()["refresh"]
+
+        refresh_url = reverse('token-refresh')
+        refresh_payload = {
+            "refresh": refresh_token
+        }
+        refresh_response = self.client.post(refresh_url, refresh_payload)
+        self.assertEqual(refresh_response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", refresh_response.json())
+
+
+
+
 
 
 
