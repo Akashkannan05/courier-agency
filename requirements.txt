@@ -5,7 +5,9 @@ django-cors-headers==4.6.0
 reportlab==4.4.7
 Pillow==12.2.0
 python-dotenv==1.1.0
+twilio==9.10.4
 asgiref==3.8.1
 sqlparse==0.5.3
 tzdata==2025.2
 celery==5.3.6
+django-celery-results==2.6.0
