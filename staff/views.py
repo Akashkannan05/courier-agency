@@ -10,7 +10,7 @@ from .serializers import (
     DriverSerializer, VehicleSerializer, GDMSerializer, ReasonSerializer,
     ExpenseSerializer, AccountSerializer
 )
-from .utils import generate_courier_pdf, send_sms
+from .utils import generate_courier_pdf, generate_gdm_pdf, send_sms
 
 class GDMCreateView(generics.CreateAPIView):
     serializer_class = GDMSerializer
@@ -299,10 +299,47 @@ class CourierCreateView(generics.CreateAPIView):
         send_sms(courier.sender_phone_num, sms_body)
         send_sms(courier.receiver_phone_num, sms_body)
         # Generate PDF
-        pdf_buffer = generate_courier_pdf(courier)
+        no_of_packages = 0
+        if courier.parcel_information and isinstance(courier.parcel_information, list):
+            for item in courier.parcel_information:
+                if isinstance(item, list) and len(item) > 1:
+                    try:
+                        no_of_packages += int(item[1])
+                    except (ValueError, TypeError):
+                        pass
+
+        courier_data = {
+            "invoice_number": courier.invoice_number,
+            "date": courier.created_at.strftime("%d-%m-%Y") if courier.created_at else "",
+            "from_location": courier.from_location.name if courier.from_location else "",
+            "to_location": courier.to_location.name if courier.to_location else "",
+            "sender_name": courier.sender_name,
+            "sender_phone_num": courier.sender_phone_num,
+            "from_address": courier.from_address,
+            "receiver_name": courier.receiver_name,
+            "receiver_phone_num": courier.receiver_phone_num,
+            "to_address": courier.to_address,
+            "no_of_packages": str(no_of_packages),
+            "weight": str(courier.weight),
+            "delivery_type": courier.delivery_type,
+            "parcel_information": courier.parcel_information,
+            "freight": courier.freight,
+            "loading_unloading": courier.loading_unloading,
+            "door_pickup": courier.door_pickup,
+            "dd_charges": courier.door_delivery,
+            "other_transport_crossing": courier.other_transport_crossing,
+            "mamool": courier.mamool,
+            "statistical_charges": courier.statistical_charges,
+            "total": courier.total,
+            "payment_status": courier.payment.status if courier.payment else "",
+            "booked_by": (courier.created_by.user.get_full_name() or courier.created_by.user.username) if courier.created_by and courier.created_by.user else ""
+        }
+
+        pdf_buffer = generate_courier_pdf(courier_data)
         
         # Return PDF response
-        response_obj = HttpResponse(pdf_buffer, content_type='application/pdf', status=status.HTTP_201_CREATED)
+        response_obj = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf', status=status.HTTP_201_CREATED)
+        response_obj['Access-Control-Expose-Headers'] = 'Content-Disposition'
         response_obj['Content-Disposition'] = f'attachment; filename="courier_{courier.invoice_number}.pdf"'
         return response_obj
 
@@ -537,3 +574,181 @@ class AccountDetailView(generics.RetrieveAPIView):
         account.ensure_today()
         account.save() # Recalculate balance and update date
         return account
+
+# class GDMReportView(generics.GenericAPIView):
+#     permission_classes = [permissions.IsAuthenticated]
+
+#     def get(self, request, *args, **kwargs):
+#         from datetime import datetime
+
+#         date_str = request.query_params.get('date')
+#         location_param = request.query_params.get('location')
+
+#         if not date_str:
+#             return response.Response(
+#                 {"error": "date parameter is required (format: YYYY-MM-DD or DD-MM-YYYY)"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         parsed_date = None
+#         for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+#             try:
+#                 parsed_date = datetime.strptime(date_str, fmt).date()
+#                 break
+#             except ValueError:
+#                 continue
+
+#         if not parsed_date:
+#             return response.Response(
+#                 {"error": "Invalid date format. Use YYYY-MM-DD or DD-MM-YYYY"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         queryset = GDM.objects.filter(dispatch_date__date=parsed_date)
+
+#         if location_param:
+#             if location_param.isdigit():
+#                 queryset = queryset.filter(route__from_location_id=int(location_param))
+#             else:
+#                 queryset = queryset.filter(route__from_location__name__iexact=location_param)
+
+#         if not queryset.exists():
+#             return response.Response(
+#                 {"error": "No GDMs found for the specified date and location"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         bookings_data = []
+#         total_packages = 0
+#         total_freight = 0
+#         seen_courier_ids = set()
+
+#         for gdm in queryset:
+#             for courier in gdm.couriers.all():
+#                 if courier.id in seen_courier_ids:
+#                     continue
+#                 seen_courier_ids.add(courier.id)
+
+#                 pkgs_count = 0
+#                 pkg_name_parts = []
+#                 if courier.parcel_information and isinstance(courier.parcel_information, list):
+#                     for item in courier.parcel_information:
+#                         if isinstance(item, list) and len(item) > 0:
+#                             pkg_name_parts.append(str(item[0]))
+#                             if len(item) > 1:
+#                                 try:
+#                                     pkgs_count += int(item[1])
+#                                 except (ValueError, TypeError):
+#                                     pass
+
+#                 package_name = ", ".join(pkg_name_parts) if pkg_name_parts else "General Parcel"
+#                 if not pkgs_count:
+#                     pkgs_count = 1
+
+#                 total_packages += pkgs_count
+#                 total_freight += courier.total
+
+#                 bookings_data.append({
+#                     "lr_no": courier.lr_number or courier.invoice_number,
+#                     "payment_mode": courier.payment.mode if courier.payment else "",
+#                     "package_name": package_name,
+#                     "travellers_count": pkgs_count,
+#                     "total_price": courier.total
+#                 })
+
+#         gdm_data = {
+#             "gdm_no": queryset[0].gdm_number if len(queryset) == 1 else ", ".join(g.gdm_number for g in queryset),
+#             "dispatch_date": parsed_date.strftime("%d-%m-%Y"),
+#             "route": f"{queryset[0].route.from_location.name} → {queryset[0].route.to_location.name}" if len(queryset) == 1 else "All Routes",
+#             "vehicle_no": queryset[0].vehicle_number if len(queryset) == 1 else ", ".join(set(g.vehicle_number for g in queryset)),
+#             "driver_name": queryset[0].driver.user_name if len(queryset) == 1 else ", ".join(set(g.driver.user_name for g in queryset)),
+#             "total_packages": total_packages,
+#             "total_freight": total_freight,
+#             "bookings": bookings_data
+#         }
+
+#         pdf_buffer = generate_gdm_pdf(gdm_data)
+#         response_obj = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+#         response_obj['Access-Control-Expose-Headers'] = 'Content-Disposition'
+#         response_obj['Content-Disposition'] = f'attachment; filename="gdm_report_{parsed_date.strftime("%Y-%m-%d")}.pdf"'
+#         return response_obj
+
+
+class GDMPDFView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = GDM.objects.all()
+
+    def get_serializer_class(self):
+        return GDMSerializer
+
+    # def get_queryset(self):
+    #     staff_account = StaffAccount.objects.filter(user=self.request.user).first()
+    #     if not staff_account:
+    #         return GDM.objects.none()
+    #     return GDM.objects.filter(created_by=staff_account)
+
+    def get(self, request, pk=None, *args, **kwargs):
+        gdm_id = pk or request.query_params.get('pk') or request.query_params.get('id') or request.query_params.get('gdm_id')
+        if not gdm_id:
+            return response.Response(
+                {"error": "GDM ID is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            gdm = self.get_queryset().get(pk=gdm_id)
+        except (GDM.DoesNotExist, ValueError):
+            return response.Response(
+                {"error": "GDM not found or permission denied"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        bookings_data = []
+        total_packages = 0
+        total_freight = 0
+
+        for courier in gdm.couriers.all():
+            pkgs_count = 0
+            pkg_name_parts = []
+            if courier.parcel_information and isinstance(courier.parcel_information, list):
+                for item in courier.parcel_information:
+                    if isinstance(item, list) and len(item) > 0:
+                        pkg_name_parts.append(str(item[0]))
+                        if len(item) > 1:
+                            try:
+                                pkgs_count += int(item[1])
+                            except (ValueError, TypeError):
+                                pass
+
+            package_name = ", ".join(pkg_name_parts) if pkg_name_parts else "General Parcel"
+            if not pkgs_count:
+                pkgs_count = 1
+
+            total_packages += pkgs_count
+            total_freight += courier.total
+
+            bookings_data.append({
+                "lr_no": courier.lr_number or courier.invoice_number,
+                "payment_mode": courier.payment.mode if courier.payment else "",
+                "package_name": package_name,
+                "travellers_count": pkgs_count,
+                "total_price": courier.total
+            })
+
+        gdm_data = {
+            "gdm_no": gdm.gdm_number or "",
+            "dispatch_date": gdm.dispatch_date.strftime("%d-%m-%Y") if gdm.dispatch_date else "",
+            "route": f"{gdm.route.from_location.name} → {gdm.route.to_location.name}" if gdm.route else "No Route",
+            "vehicle_no": gdm.vehicle_number or "",
+            "driver_name": gdm.driver.user_name if gdm.driver else "",
+            "total_packages": total_packages,
+            "total_freight": total_freight,
+            "bookings": bookings_data
+        }
+
+        pdf_buffer = generate_gdm_pdf(gdm_data)
+        response_obj = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response_obj['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        response_obj['Content-Disposition'] = f'attachment; filename="gdm_{gdm.gdm_number or gdm.id}.pdf"'
+        return response_obj
+

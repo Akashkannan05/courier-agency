@@ -6,7 +6,7 @@ from .views import (
     CourierMarkDeleveredView, RouteListView, CourierDetailView,
     StaffLoginView, GDMCreateView, GDMListView, GDMDetailView,
     DeleveredCourierListView, PaidCourierListView, ToPayCourierListView,
-    ReasonListView, ExpenseListView, AccountDetailView
+    ReasonListView, ExpenseListView, AccountDetailView, GDMPDFView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -15,6 +15,9 @@ urlpatterns = [
     path('login/', StaffLoginView.as_view(), name='staff-login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('gdms/create/', GDMCreateView.as_view(), name='gdm-create'),
+    # path('gdms/report/', GDMReportView.as_view(), name='gdm-report'),
+    path('gdms/<int:pk>/pdf/', GDMPDFView.as_view(), name='gdm-pdf'),
+    # path('gdms/pdf/', GDMPDFView.as_view(), name='gdm-pdf-query'),
     path('gdms/', GDMListView.as_view(), name='gdm-list'),
     path('gdms/<int:pk>/', GDMDetailView.as_view(), name='gdm-detail'),
     path('couriers/create/', CourierCreateView.as_view(), name='courier-create'),

@@ -514,6 +514,49 @@ class CourierAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(GDM.objects.count(), 0)
 
+    def test_gdm_report_api(self):
+        driver = Driver.objects.create(user_name="reportdr", license_number="L_REP")
+        vehicle = Vehicle.objects.create(vehicle_number="V_REP")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        gdm = GDM.objects.create(created_by=self.staff, vehicle_number="V_REP", driver=driver, route=route)
+        
+        c = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            route=route, vehicle=vehicle, invoice_number="GDMREP1", parcel_information=[["A", 1]], weight=5, delivery_type="Door Delivery"
+        )
+        gdm.couriers.add(c)
+        
+        url = reverse('gdm-report')
+        
+        # Test missing date param
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        # Test invalid date param
+        response = self.client.get(f"{url}?date=invalid-date")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        # Test not found
+        response = self.client.get(f"{url}?date=2020-01-01")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        
+        # Test success (by date)
+        from django.utils import timezone
+        today_str = timezone.now().strftime("%Y-%m-%d")
+        response = self.client.get(f"{url}?date={today_str}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        
+        # Test success (by date and location ID)
+        response = self.client.get(f"{url}?date={today_str}&location={self.location1.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+        # Test success (by date and location Name)
+        response = self.client.get(f"{url}?date={today_str}&location=New York")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
     def test_gdm_permissions(self):
         # Create GDM by another staff
         other_user = User.objects.create_user(username="otherstaff2", password="password")
@@ -536,6 +579,66 @@ class CourierAPITest(APITestCase):
         
         # DELETE should be 404
         response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_gdm_pdf_success_path_param(self):
+        driver = Driver.objects.create(user_name="pdfdr", license_number="L_PDF")
+        vehicle = Vehicle.objects.create(vehicle_number="V_PDF")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        gdm = GDM.objects.create(created_by=self.staff, vehicle_number="V_PDF", driver=driver, route=route)
+        c = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            route=route, vehicle=vehicle, invoice_number="GDMPDF1", parcel_information=[["A", 1]], weight=5, delivery_type="Door Delivery"
+        )
+        gdm.couriers.add(c)
+
+        url = reverse('gdm-pdf', kwargs={'pk': gdm.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+    def test_gdm_pdf_success_query_param(self):
+        driver = Driver.objects.create(user_name="pdfdr2", license_number="L_PDF2")
+        vehicle = Vehicle.objects.create(vehicle_number="V_PDF2")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        gdm = GDM.objects.create(created_by=self.staff, vehicle_number="V_PDF2", driver=driver, route=route)
+        c = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            route=route, vehicle=vehicle, invoice_number="GDMPDF2", parcel_information=[["A", 1]], weight=5, delivery_type="Door Delivery"
+        )
+        gdm.couriers.add(c)
+
+        # test various query params
+        for query_param in ['pk', 'id', 'gdm_id']:
+            url = f"{reverse('gdm-pdf-query')}?{query_param}={gdm.pk}"
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(response['Content-Type'], 'application/pdf')
+
+    def test_gdm_pdf_not_found(self):
+        url = reverse('gdm-pdf', kwargs={'pk': 99999})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        url = f"{reverse('gdm-pdf-query')}?pk=99999"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        url = reverse('gdm-pdf-query')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_gdm_pdf_permission_denied(self):
+        # Create GDM by another staff
+        other_user = User.objects.create_user(username="otherstaff3", password="password")
+        other_staff = StaffAccount.objects.create(user=other_user, assigned_location=self.location1)
+        driver = Driver.objects.create(user_name="dr4", license_number="L4")
+        vehicle = Vehicle.objects.create(vehicle_number="V4")
+        route = Route.objects.create(from_location=self.location1, to_location=self.location2, route_path=[], driver=driver, vehicle=vehicle)
+        gdm = GDM.objects.create(created_by=other_staff, vehicle_number="V4", driver=driver, route=route)
+
+        url = reverse('gdm-pdf', kwargs={'pk': gdm.pk})
+        response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_list_other_locations(self):
