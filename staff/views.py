@@ -752,3 +752,68 @@ class GDMPDFView(generics.GenericAPIView):
         response_obj['Content-Disposition'] = f'attachment; filename="gdm_{gdm.gdm_number or gdm.id}.pdf"'
         return response_obj
 
+
+class CourierPDFView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        lr_number = request.query_params.get('lr_number') or kwargs.get('lr_number')
+        if not lr_number:
+            return response.Response(
+                {"error": "lr_number query parameter or path parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            courier = Courier.objects.get(lr_number=lr_number)
+        except Courier.DoesNotExist:
+            return response.Response(
+                {"error": f"Courier with lr_number {lr_number} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Generate courier_data dict
+        no_of_packages = 0
+        if courier.parcel_information and isinstance(courier.parcel_information, list):
+            for item in courier.parcel_information:
+                if isinstance(item, list) and len(item) > 1:
+                    try:
+                        no_of_packages += int(item[1])
+                    except (ValueError, TypeError):
+                        pass
+
+        courier_data = {
+            "invoice_number": courier.invoice_number,
+            "date": courier.created_at.strftime("%d-%m-%Y") if courier.created_at else "",
+            "from_location": courier.from_location.name if courier.from_location else "",
+            "to_location": courier.to_location.name if courier.to_location else "",
+            "sender_name": courier.sender_name,
+            "sender_phone_num": courier.sender_phone_num,
+            "from_address": courier.from_address,
+            "receiver_name": courier.receiver_name,
+            "receiver_phone_num": courier.receiver_phone_num,
+            "to_address": courier.to_address,
+            "no_of_packages": str(no_of_packages),
+            "weight": str(courier.weight),
+            "delivery_type": courier.delivery_type,
+            "parcel_information": courier.parcel_information,
+            "freight": courier.freight,
+            "loading_unloading": courier.loading_unloading,
+            "door_pickup": courier.door_pickup,
+            "dd_charges": courier.door_delivery,
+            "other_transport_crossing": courier.other_transport_crossing,
+            "mamool": courier.mamool,
+            "statistical_charges": courier.statistical_charges,
+            "total": courier.total,
+            "payment_status": courier.payment.status if courier.payment else "",
+            "booked_by": (courier.created_by.user.get_full_name() or courier.created_by.user.username) if courier.created_by and courier.created_by.user else ""
+        }
+
+        pdf_buffer = generate_courier_pdf(courier_data)
+        
+        response_obj = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf', status=status.HTTP_200_OK)
+        response_obj['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        response_obj['Content-Disposition'] = f'attachment; filename="courier_{courier.invoice_number}.pdf"'
+        return response_obj
+
+

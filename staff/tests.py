@@ -724,6 +724,52 @@ class CourierAPITest(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['invoice_number'], "TOPAY1")
 
+    def test_courier_pdf_success_path_param(self):
+        c = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            invoice_number="CPDF1", parcel_information=[["A", 1]], weight=5, delivery_type="Door Delivery"
+        )
+        self.assertIsNotNone(c.lr_number)
+
+        url = reverse('courier-pdf', kwargs={'lr_number': c.lr_number})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+    def test_courier_pdf_success_query_param(self):
+        c = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            invoice_number="CPDF2", parcel_information=[["A", 1]], weight=5, delivery_type="Door Delivery"
+        )
+
+        url = f"{reverse('courier-pdf-query')}?lr_number={c.lr_number}"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+    def test_courier_pdf_not_found(self):
+        url = reverse('courier-pdf', kwargs={'lr_number': "LR-NONEXISTENT"})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        url = f"{reverse('courier-pdf-query')}?lr_number=LR-NONEXISTENT"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        url = reverse('courier-pdf-query')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_courier_pdf_unauthenticated(self):
+        self.client.force_authenticate(user=None)
+        c = Courier.objects.create(
+            created_by=self.staff, from_location=self.location1, to_location=self.location2,
+            invoice_number="CPDF3", parcel_information=[["A", 1]], weight=5, delivery_type="Door Delivery"
+        )
+        url = reverse('courier-pdf', kwargs={'lr_number': c.lr_number})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
 class RouteAPITest(APITestCase):
     def setUp(self):
         self.loc1 = Location.objects.create(name="Point A", short_code="PA")
